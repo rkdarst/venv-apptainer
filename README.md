@@ -1,8 +1,19 @@
 # Python virtual environments in Apptainer for supply-chain attack protection
 
-This builds virtual environments in apptainer, `venv-apptainer2.sh`
+This builds virtual environments in apptainer to protect against
+supply chain attacks.  Note that containers are not perfect
+protection.
 
-*Not fully documented yet, since it's still in development*
+The general idea is that a shell alias `vea` automatically builds the
+environment from `./requirements.txt` at `./venva/`.  The actual
+environment files are not put into a container, they are normal files
+on disk (and the container image is completely standard `python`).
+The shell alias also activates a path (`./venva/venva-bin/`) that
+transparently runs commands within the container.
+
+*Not fully documented yet, since it's still in development.  It's also
+designed around my own tastes.*
+
 
 ## The concept / design criteria
 
@@ -10,9 +21,9 @@ This builds virtual environments in apptainer, `venv-apptainer2.sh`
   doesn't exist (and activate it).  If it does exist, activate it.
   Remove `./venva` to force a rebuild.
 * It doesn't build a new container for every environment (that was too
-  high-resource for me).  Instead, it creates a directory `./venva`
-  and builds the virtual environment there, always re-using *only* the
-  standard Python image.
+  high-resource for my tastes).  Instead, it creates a directory
+  `./venva` and builds the virtual environment there, always re-using
+  *only* the standard Python image.
 * `$PWD` is mounted inside the container, but `$HOME` isn't.
 * `./venva` is mounted inside the container at `/venv-apptainer` and
   used to build the virtual environment.
