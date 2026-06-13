@@ -41,6 +41,6 @@ EOF
 #test -L pip    && rm pip
 #ln -s venv.sif python
 #ln -s venv.sif pip
-echo apptainer exec --no-home $(readlink -f .)/venv.sif python '"$@"' > python 
+echo apptainer exec --no-home $(readlink -f .)/venv.sif python '"$@"' > python
 echo apptainer exec --no-home $(readlink -f .)/venv.sif pip '"$@"' > pip
 chmod a+x pip python
