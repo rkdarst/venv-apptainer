@@ -8,8 +8,11 @@ The general idea is that a shell alias `vea` automatically builds the
 environment from `./requirements.txt` at `./venva/`.  The actual
 environment files are not put into a container, they are normal files
 on disk (and the container image is completely standard `python`).
-The shell alias also activates a path (`./venva/venva-bin/`) that
+The shell alias also activates a path (`./venva/bin/`) that
 transparently runs commands within the container.
+
+There is preliminary support for Conda, which is activated when a
+environment.yml file is detected.
 
 *Not fully documented yet, since it's still in development.  It's also
 designed around my own tastes.*
@@ -28,7 +31,7 @@ designed around my own tastes.*
 * `./venva` is mounted inside the container at `/venv-apptainer` and
   used to build the virtual environment.
 * `./venva/exec` is a wrapper to exec inside the container.
-* `./venva/venva-bin/` contains wrappers to execute all the scripts in
+* `./venva/bin/` contains wrappers to execute all the scripts in
   the venv, inside the container.
 * It's designed (via `#!` lines) to make it difficult to accidentally
   execute outside the container

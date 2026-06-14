@@ -1,0 +1,6 @@
+channels:
+  - nodefaults
+  - conda-forge
+dependencies:
+  - python
+  - Sphinx
