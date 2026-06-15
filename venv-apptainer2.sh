@@ -1,5 +1,12 @@
-VENV_APPTAINER_IMAGE=${VENV_APPTAINER_IMAGE:=$(readlink -f $(dirname $BASH_SOURCE)/python-3.14.sif)}
-CONDA_APPTAINER_IMAGE=${CONDA_APPTAINER_IMAGE:=$(readlink -f $(dirname $BASH_SOURCE)/miniforge-26.sif)}
+# Store images in ~/sys/ if it exists.  Otherwise in the location of
+# this script.
+if [ -d ~/sys/ ] ; then
+    : ${VENV_APPTAINER_IMAGE:=~/sys/python-3.14.sif}
+    : ${CONDA_APPTAINER_IMAGE:=~/sys/miniforge-26.sif}
+else
+    : "${VENV_APPTAINER_IMAGE:=$(realpath $(dirname $BASH_SOURCE)/python-3.14.sif)}"
+    : "${CONDA_APPTAINER_IMAGE:=$(realpath $(dirname $BASH_SOURCE)/miniforge-26.sif)}"
+fi
 
 function vea() {
     #set -x
