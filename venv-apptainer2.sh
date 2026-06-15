@@ -48,9 +48,10 @@ function vea() {
 
     # Environment seems to already exist, so activate it.
     # Delete the $BASE (./venva/) directory to re-create.
-    if test -z "$VENVA_FORCE" && -e "$BASE" ; then
-	PATH="$PWD/$BASE/bin/":"$PATH"
-	VIRTUAL_ENV="$BASE"
+    if test -z "$VENVA_FORCE" -a -e "$BASE" ; then
+	#PATH="$PWD/$BASE/bin/":"$PATH"
+	#VIRTUAL_ENV="$BASE"
+	source "$BASE"/activate
 	#set +x
 	return
     fi
@@ -100,7 +101,7 @@ function vea() {
     fi
 
     # Make it a squashfs, if mksquashfs is installed.
-    if test -n "$NO_SQUASH" && type mksquashfs > /dev/null ; then
+    if test -z "$NO_SQUASH" && type mksquashfs > /dev/null ; then
 	mksquashfs "$BASE"/venv/ "$BASE/$SQUASHFS_FILE"
 	PATH_OUT="$PWD/$BASE/$SQUASHFS_FILE"
 	BIND_ENV="--bind=$PATH_OUT:$PATH_IN:image-src=/"
@@ -118,6 +119,11 @@ function vea() {
     fi
     chmod a+x "$BASE"/exec
 
+    # Activate script
+    echo 'PATH="$(realpath $(dirname $BASH_SOURCE))"/bin/:"$PATH"' > "$BASE"/activate
+    echo 'VIRTUAL_ENV="$(basename $(dirname $BASH_SOURCE))"' >> "$BASE"/activate
+
+
     # In $BASE/bin/, install wrappers for all programs within the environment
     for executable in $(./"$BASE"/exec ls "$PATH_IN"/bin/) ; do
 	echo "$PWD/$BASE"/exec "$executable" '"$@"' >> "$BASE"/bin/"$executable"
@@ -125,7 +131,8 @@ function vea() {
     done
 
     # Activate the environment
-    PATH="$PWD"/venva/bin/:"$PATH"
-    VIRTUAL_ENV=venva
+    #PATH="$PWD"/venva/bin/:"$PATH"
+    #VIRTUAL_ENV=venva
+    source "$BASE"/activate
     #set +x
 }

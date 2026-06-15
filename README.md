@@ -55,6 +55,17 @@ python                         # execute ./venva/venva-bin/python,
 							   # virtual env.
 ```
 
+## To do
+
+- It's generally not ready for broad adoption.  In principle it works
+  but small things are being worked out.  Others can use if they would
+  look at teh source and/or ask for help.
+- There are some bashisms that need fixing (mainly $BASH_SOURCE which
+  doesn't have a general solution for sourced scripts).
+- There may be some nested unquoted variable expansions.
+- Make environment relocatable (currently bind paths are hardcoded).
+- Handle --cwd properly
+
 ## See also
 
 * `venv-apptainer1.sh` is the old version that does build a new image
