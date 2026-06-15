@@ -1,8 +1,8 @@
 # Store images in ~/sys/ if it exists.  Otherwise in the location of
 # this script.
 if [ -d ~/sys/ ] ; then
-    : "${VENV_APPTAINER_IMAGE:=~/sys/python-3.14.sif}"
-    : "${CONDA_APPTAINER_IMAGE:=~/sys/miniforge-26.sif}"
+    : "${VENV_APPTAINER_IMAGE:=$HOME/sys/python-3.14.sif}"
+    : "${CONDA_APPTAINER_IMAGE:=$HOME/sys/miniforge-26.sif}"
 else
     : "${VENV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"$BASH_SOURCE\\\")/python-3.14.sif)\"}"
     : "${CONDA_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"$BASH_SOURCE\\\")/miniforge-26.sif)\"}"
@@ -10,16 +10,45 @@ fi
 
 function vea() {
     #set -x
-    local BASE PATH_IN PATH_OUT BIND_ENV APPTAINER_EXTRA
-    BASE=venva
-    PATH_IN=/venv-apptainer/
-    PATH_OUT="$PWD/$BASE/venv/"
-    BIND_ENV="--bind=$PATH_OUT:$PATH_IN"
-    APPTAINER_EXTRA="--contain --cwd $PWD --bind $PWD:$PWD --workdir=$PWD/$BASE/tmp --env LANG=C --env LC_ALL=C"
+    local BASE=venva
+    local PATH_IN=/venv-apptainer/
+    local PATH_OUT="$PWD/$BASE/venv/"
+    local BIND_ENV="--bind=$PATH_OUT:$PATH_IN"
+    local APPTAINER_EXTRA="--contain --cwd $PWD --bind $PWD:$PWD --workdir=$PWD/$BASE/tmp --env LANG=C --env LC_ALL=C"
+
+    while [[ $# -gt 0 ]]; do
+	case $1 in
+	    -h|--help)
+		echo "usage: vea REQ_FILE"
+		shift
+		exit
+		;;
+	    -f|--force)
+		local VENVA_FORCE=true
+		shift
+		;;
+	    --no-squash)
+		local NO_SQUASH=true
+		shift
+		;;
+	    --pip)
+		local install_type=pip
+		shift
+		;;
+	    --conda)
+		local install_type=conda
+		shift
+		;;
+	    *)
+		local REQ_FILE="$1"
+		shift
+		;;
+	esac
+    done
 
     # Environment seems to already exist, so activate it.
     # Delete the $BASE (./venva/) directory to re-create.
-    if test -e "$BASE" ; then
+    if test -z "$VENVA_FORCE" && -e "$BASE" ; then
 	PATH="$PWD/$BASE/bin/":"$PATH"
 	VIRTUAL_ENV="$BASE"
 	#set +x
@@ -33,22 +62,22 @@ function vea() {
     # Handle Pip vs Conda specialities.
     local install_type install_command
     local IMG BIND_CACHE
-    if test -e requirements.txt ; then
+    if [ "$install_type" = pip ] || { test -z "$install_type" && test -e requirements.txt ; } ; then
 	if ! test -e "$VENV_APPTAINER_IMAGE" ; then
 	    apptainer pull "$VENV_APPTAINER_IMAGE" docker://python:3.13.14-trixie
 	fi
 	install_type='pip'
-	install_command='python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install -r requirements.txt'
+	install_command='python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install -r ${REQ_FILE:-requirements.txt}'
 	IMG="$VENV_APPTAINER_IMAGE"
 	mkdir -p "$HOME"/.cache/pip-apptainer
 	BIND_CACHE=--bind="$HOME"/.cache/pip-apptainer/:"$HOME"/.cache/pip
 	SQUASHFS_FILE=venv.squashfs
-    elif test -e environment.yml ; then
+    elif [ "$install_type" = conda ] || { test -z "$install_type" && test -e environment.yml ; } ; then
 	if ! test -e "$CONDA_APPTAINER_IMAGE" ; then
-	    apptainer pull "$CONDA_APPTAINER_IMAGE" docker://conda-forge/miniforge3:latest
+	    apptainer pull "$CONDA_APPTAINER_IMAGE" docker://condaforge/miniforge3:26.3.2-3
 	fi
 	install_type='conda'
-	install_command='conda env create --yes -p /venv-apptainer -f environment.yml'
+	install_command="conda env create --yes -p /venv-apptainer -f ${REQ_FILE:-environment.yml}"
 	IMG="$CONDA_APPTAINER_IMAGE"
 	mkdir -p "$HOME"/.cache/conda-apptainer "$HOME"/.conda-apptainer/
 	BIND_CACHE="--bind=$HOME/.cache/conda-apptainer/:$HOME/.cache/conda/ --bind=$HOME/.conda-apptainer/:$HOME/.conda/"
@@ -71,7 +100,7 @@ function vea() {
     fi
 
     # Make it a squashfs, if mksquashfs is installed.
-    if type mksquashfs > /dev/null ; then
+    if test -n "$NO_SQUASH" && type mksquashfs > /dev/null ; then
 	mksquashfs "$BASE"/venv/ "$BASE/$SQUASHFS_FILE"
 	PATH_OUT="$PWD/$BASE/$SQUASHFS_FILE"
 	BIND_ENV="--bind=$PATH_OUT:$PATH_IN:image-src=/"
