@@ -12,9 +12,6 @@ function vea() {
     #set -x
     local BASE=venva
     local PATH_IN=/venv-apptainer/
-    local PATH_OUT="$PWD/$BASE/venv/"
-    local BIND_ENV="--bind=$PATH_OUT:$PATH_IN"
-    local APPTAINER_EXTRA="--contain --cwd $PWD --bind $PWD:$PWD --workdir=$PWD/$BASE/tmp --env LANG=C --env LC_ALL=C"
 
     while [[ $# -gt 0 ]]; do
 	case $1 in
@@ -46,6 +43,8 @@ function vea() {
 	esac
     done
 
+    local APPTAINER_EXTRA="--contain --cwd \$PWD --bind \$PWD:\$PWD --workdir=\$BASE/tmp --env LANG=C --env LC_ALL=C"
+
     # Environment seems to already exist, so activate it.
     # Delete the $BASE (./venva/) directory to re-create.
     if test -z "$VENVA_FORCE" -a -e "$BASE" ; then
@@ -56,7 +55,7 @@ function vea() {
 	return
     fi
 
-    mkdir -p "$PATH_OUT"
+    mkdir -p "$BASE"/venv
     mkdir -p "$BASE"/bin
     mkdir -p "$BASE"/tmp
 
@@ -90,9 +89,9 @@ function vea() {
 
     # Do the actual building
     apptainer exec \
-	      $BIND_ENV \
+	      --bind="$BASE"/venv:"$PATH_IN" \
 	      $BIND_CACHE \
-	      $APPTAINER_EXTRA \
+	      $(eval echo $APPTAINER_EXTRA) \
 	      "$IMG" \
 	      bash -c "$install_command"
     if [ $? -ne 0 ] ; then
@@ -100,11 +99,15 @@ function vea() {
 	return 1
     fi
 
+    # Note that this is \$BASE - $BASE gets interperted at the point
+    # of execution of the ./venva/exec script, so that it is relocateable!
+    # This is default without squashfs:
+    local BIND_ENV="--bind=\$BASE/venv:$PATH_IN"
+
     # Make it a squashfs, if mksquashfs is installed.
     if test -z "$NO_SQUASH" && type mksquashfs > /dev/null ; then
 	mksquashfs "$BASE"/venv/ "$BASE/$SQUASHFS_FILE"
-	PATH_OUT="$PWD/$BASE/$SQUASHFS_FILE"
-	BIND_ENV="--bind=$PATH_OUT:$PATH_IN:image-src=/"
+	BIND_ENV="--bind=\$BASE/$SQUASHFS_FILE:$PATH_IN:image-src=/"
 	rm -r venva/venv/
     fi
 
@@ -113,9 +116,11 @@ function vea() {
     # activates the environments within the container, then runs
     # either a shell or the first command line options.
     if [ "$install_type" = pip ]; then
-	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA "$IMG" 'bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" - "$@"' > $BASE/exec
+	echo 'BASE=$(dirname $0)' > "$BASE"/exec
+	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA "$IMG" 'bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" - "$@"' >> $BASE/exec
     elif [ "$install_type" = conda ] ; then
-	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA "$IMG" 'bash -c "source activate /venv-apptainer ; \${@:-bash}" - "$@"' > "$BASE"/exec
+	echo 'BASE=$(dirname $0)' > "$BASE"/exec
+	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA "$IMG" 'bash -c "source activate /venv-apptainer ; \${@:-bash}" - "$@"' >> "$BASE"/exec
     fi
     chmod a+x "$BASE"/exec
 

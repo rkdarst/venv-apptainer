@@ -43,6 +43,10 @@ designed around my own tastes.*
   inodes (default on).
 * It's designed (via `#!` lines) to make it difficult to accidentally
   execute outside the container
+* Handle pip/conda caches to avoid re-downloading things (it may
+  result in vulnerable packages being cached, but the cache is not
+  shared with the normal pip/conda cache.  Should it be, so that it
+  can be cleaned more easily?)
 
 
 ## Usage
@@ -96,8 +100,10 @@ $ vea
 - There may be some nested unquoted variable expansions.
 - Make environment relocatable (currently bind paths are hardcoded and
   need to be relative to the `venva` directory).  Though this is how
-  virtual environments are anyway now...
+  virtual environments are anyway now... (done)
 - Handle --cwd properly (currently hard-coded to base directory)
+  (done)
+* Investigate locale handling
 
 
 ## See also
