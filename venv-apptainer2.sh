@@ -10,8 +10,8 @@ fi
 
 function vea() {
     #set -x
-    local BASE=venva
-    local PATH_IN=/venv-apptainer/
+    local BASE=venva                 # base path for env
+    local PATH_IN=/venv-apptainer/   # mountd path in the container
 
     while [[ $# -gt 0 ]]; do
 	case $1 in
