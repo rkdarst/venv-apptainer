@@ -43,7 +43,7 @@ function vea() {
 	esac
     done
 
-    local APPTAINER_EXTRA="--contain --cwd \$PWD --bind \$PWD:\$PWD --workdir=\$BASE/tmp --env LANG=C --env LC_ALL=C"
+    local APPTAINER_EXTRA='--contain --env LANG=C --env LC_ALL=C'
 
     # Environment seems to already exist, so activate it.
     # Delete the $BASE (./venva/) directory to re-create.
@@ -91,7 +91,10 @@ function vea() {
     apptainer exec \
 	      --bind="$BASE"/venv:"$PATH_IN" \
 	      $BIND_CACHE \
-	      $(eval echo $APPTAINER_EXTRA) \
+	      --cwd "$PWD" \
+	      --bind "$PWD:$PWD" \
+	      --workdir="$BASE"/tmp \
+	      $APPTAINER_EXTRA \
 	      "$IMG" \
 	      bash -c "$install_command"
     if [ $? -ne 0 ] ; then
@@ -102,25 +105,31 @@ function vea() {
     # Note that this is \$BASE - $BASE gets interperted at the point
     # of execution of the ./venva/exec script, so that it is relocateable!
     # This is default without squashfs:
-    local BIND_ENV="--bind=\$BASE/venv:$PATH_IN"
+    local BIND_ENV="--bind=\"\$BASE/venv\":$PATH_IN"
 
     # Make it a squashfs, if mksquashfs is installed.
     if test -z "$NO_SQUASH" && type mksquashfs > /dev/null ; then
 	mksquashfs "$BASE"/venv/ "$BASE/$SQUASHFS_FILE"
-	BIND_ENV="--bind=\$BASE/$SQUASHFS_FILE:$PATH_IN:image-src=/"
+	BIND_ENV="--bind=\"\$BASE\"/$SQUASHFS_FILE:$PATH_IN:ro,image-src=/"
 	rm -r venva/venv/
     fi
 
     # Install the `$BASE/exec` wrapper that includes all the options
     # we need to run within the container.  This wrapper also
     # activates the environments within the container, then runs
-    # either a shell or the first command line options.
+    # either a shell or the command given on the command line.
     if [ "$install_type" = pip ]; then
-	echo 'BASE=$(dirname $0)' > "$BASE"/exec
-	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA "$IMG" 'bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" - "$@"' >> $BASE/exec
+	echo 'BASE="$(dirname $0)"' > "$BASE"/exec
+	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA \
+	     --cwd '"$PWD"' --bind '"$PWD:$PWD"' '--workdir="$BASE"/tmp' \
+	     "$IMG" 'bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" - "$@"' \
+	     >> $BASE/exec
     elif [ "$install_type" = conda ] ; then
-	echo 'BASE=$(dirname $0)' > "$BASE"/exec
-	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA "$IMG" 'bash -c "source activate /venv-apptainer ; \${@:-bash}" - "$@"' >> "$BASE"/exec
+	echo 'BASE="$(dirname $0)"' > "$BASE"/exec
+	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA \
+	     --cwd '"$PWD"' --bind '"$PWD:$PWD"' '--workdir="$BASE"/tmp' \
+	     "$IMG" 'bash -c "source activate /venv-apptainer ; \${@:-bash}" - "$@"' \
+	     >> "$BASE"/exec
     fi
     chmod a+x "$BASE"/exec
 
@@ -131,7 +140,8 @@ function vea() {
 
     # In $BASE/bin/, install wrappers for all programs within the environment
     for executable in $(./"$BASE"/exec ls "$PATH_IN"/bin/) ; do
-	echo "$PWD/$BASE"/exec "$executable" '"$@"' >> "$BASE"/bin/"$executable"
+	echo 'BASE="$(dirname $0)/../"' > "$BASE"/bin/"$executable"
+	echo "$BASE"/exec "$executable" '"$@"' >> "$BASE"/bin/"$executable"
 	chmod a+x "$BASE"/bin/"$executable"
     done
 
