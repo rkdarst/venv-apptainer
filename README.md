@@ -55,7 +55,8 @@ Implementation details:
 ## Usage
 
 Source the script.  This doesn't do anything but defines the `vea`
-shell function.  This is designed to be sourced from .bashrc.
+shell function.  This is designed to be sourced from .bashrc.  It
+should support at least bash and zsh.
 
 ```console
 $ source venv-apptainer2.sh
@@ -96,9 +97,6 @@ $ vea
 ## To do
 
 - Practical testing by others, to see if it's ready for broad aption.
-- There are some bashisms that need fixing (mainly $BASH_SOURCE which
-  doesn't have a general solution for getting the path of sourced
-  scripts).
 - There may be some nested unquoted variable expansions. (perhaps done)
 - It will fail on directories with a `:` (colon) anywhere in the
   absolute path.

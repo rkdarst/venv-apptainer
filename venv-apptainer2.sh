@@ -4,8 +4,12 @@ if [ -d ~/sys/ ] ; then
     : "${VENV_APPTAINER_IMAGE:=$HOME/sys/python-3.14.sif}"
     : "${CONDA_APPTAINER_IMAGE:=$HOME/sys/miniforge-26.sif}"
 else
-    : "${VENV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"$BASH_SOURCE\\\")/python-3.14.sif)\"}"
-    : "${CONDA_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"$BASH_SOURCE\\\")/miniforge-26.sif)\"}"
+    # The crazy construct ${BASH_SOURCE:-${(%):-%x}} (also seen below)
+    # is a way to emulate $BASH_SOURCE on zsh (and this form works for
+    # both bash and zsh)
+    : "${VENV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/python-3.14.sif)\"}"
+    : "${CONDA_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/miniforge-26.sif)\"}"
+
 fi
 
 function vea() {
@@ -42,8 +46,6 @@ function vea() {
 		;;
 	esac
     done
-
-    local APPTAINER_EXTRA='--contain --env LANG=C --env LC_ALL=C'
 
     # Environment seems to already exist, so activate it.
     # Delete the $BASE (./venva/) directory to re-create.
@@ -94,7 +96,7 @@ function vea() {
 	      --cwd "$PWD" \
 	      --bind "$PWD:$PWD" \
 	      --workdir="$BASE"/tmp \
-	      $APPTAINER_EXTRA \
+	      --contain --env LANG=C --env LC_ALL=C \
 	      "$IMG" \
 	      bash -c "$install_command"
     if [ $? -ne 0 ] ; then
@@ -109,8 +111,8 @@ function vea() {
 
     # Make it a squashfs, if mksquashfs is installed.
     if test -z "$NO_SQUASH" && type mksquashfs > /dev/null ; then
-	mksquashfs "$BASE"/venv/ "$BASE/$SQUASHFS_FILE"
-	BIND_ENV="--bind=\"\$BASE\"/$SQUASHFS_FILE:$PATH_IN:ro,image-src=/"
+	mksquashfs "$BASE"/venv/ "$BASE/$SQUASHFS_FILE" -quiet
+	BIND_ENV="--bind=\"\$BASE\"/${SQUASHFS_FILE}:${PATH_IN}:ro,image-src=/"
 	rm -r venva/venv/
     fi
 
@@ -120,22 +122,25 @@ function vea() {
     # either a shell or the command given on the command line.
     if [ "$install_type" = pip ]; then
 	echo 'BASE="$(dirname $0)"' > "$BASE"/exec
-	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA \
+	echo apptainer exec $BIND_ENV \
+	     --contain --env LANG=C --env LC_ALL=C \
 	     --cwd '"$PWD"' --bind '"$PWD:$PWD"' '--workdir="$BASE"/tmp' \
 	     "$IMG" 'bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" - "$@"' \
 	     >> $BASE/exec
     elif [ "$install_type" = conda ] ; then
 	echo 'BASE="$(dirname $0)"' > "$BASE"/exec
-	echo apptainer exec $BIND_ENV $APPTAINER_EXTRA \
+	echo apptainer exec $BIND_ENV \
+	     --contain --env LANG=C --env LC_ALL=C \
 	     --cwd '"$PWD"' --bind '"$PWD:$PWD"' '--workdir="$BASE"/tmp' \
 	     "$IMG" 'bash -c "source activate /venv-apptainer ; \${@:-bash}" - "$@"' \
 	     >> "$BASE"/exec
     fi
     chmod a+x "$BASE"/exec
 
-    # Activate script
-    echo 'PATH="$(realpath $(dirname $BASH_SOURCE))"/bin/:"$PATH"' > "$BASE"/activate
-    echo 'VIRTUAL_ENV="$(basename $(dirname $BASH_SOURCE))"' >> "$BASE"/activate
+    # Activate script.  The ${BASH_SOURCE:-${(%):-%x}} construct
+    # allows something like BASH_SOURCE on zsh, too.
+    echo 'PATH="$(realpath $(dirname ${BASH_SOURCE:-${(%):-%x}}))"/bin/:"$PATH"' > "$BASE"/activate
+    echo 'VIRTUAL_ENV="$(basename $(dirname ${BASH_SOURCE:-${(%):-%x}}))"' >> "$BASE"/activate
 
 
     # In $BASE/bin/, install wrappers for all programs within the environment
