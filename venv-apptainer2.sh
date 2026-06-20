@@ -21,64 +21,95 @@ function vea() {
 	case $1 in
 	    -h|--help)
 		echo "usage: vea REQ_FILE"
+		echo
+		echo -- "REQ_FILE:      Use this requirements file (default: detect"
+                echo -- "               environment.yml, pylock.toml, requirements.txt"
+                echo -- "               in that order)"
+		echo -- "--force:       force a rebuild"
+		echo -- "--no-squash:   Don't compact to a squashfs filesystem.  Allows"
+		echo -- "               updating/editing later"
+		echo -- "--pip:         Install file with pip"
+		echo -- "--conda:       Install file with conda"
 		shift
-		exit
-		;;
-	    -f|--force)
-		local VENVA_FORCE=true
-		shift
-		;;
-	    --no-squash)
-		local NO_SQUASH=true
-		shift
-		;;
-	    --pip)
-		local install_type=pip
-		shift
-		;;
-	    --conda)
-		local install_type=conda
-		shift
-		;;
-	    *)
-		local REQ_FILE="$1"
-		shift
-		;;
-	esac
+                return
+                ;;
+            -f|--force)
+                local VENVA_FORCE=true
+                shift
+                ;;
+            --no-squash)
+                local NO_SQUASH=true
+                shift
+                ;;
+            --pip)
+                local install_type=pip
+                shift
+                ;;
+            --conda)
+                local install_type=conda
+                shift
+                ;;
+            *)
+                local REQ_FILE="$1"
+                shift
+                ;;
+        esac
     done
 
     # Environment seems to already exist, so activate it.
     # Delete the $BASE (./venva/) directory to re-create.
     if test -z "$VENVA_FORCE" -a -e "$BASE" ; then
-	#PATH="$PWD/$BASE/bin/":"$PATH"
-	#VIRTUAL_ENV="$BASE"
-	source "$BASE"/activate
-	#set +x
-	return
+        #PATH="$PWD/$BASE/bin/":"$PATH"
+        #VIRTUAL_ENV="$BASE"
+        source "$BASE"/activate
+        #set +x
+        return
     fi
 
-    mkdir -p "$BASE"/venv
-    mkdir -p "$BASE"/bin
-    mkdir -p "$BASE"/tmp
+    # Detect what our mode should be
+    if   [ "$install_type" = pip ] ; then
+        if -n "$REQ_FILE" ; then
+            test -e requirements.txt && local REQ_FILE=requirements.txt
+            test -e pylock.toml && local REQ_FILE=pylock.toml
+        fi
+    elif [ "$install_type" = conda ] ; then
+        test -n "$REQ_FILE" || local REQ_FILE=environment.yml
+    elif [ -n "$REQ_FILE" ] ; then
+	case "$REQ_FILE" in
+	    *.txt|*.toml)
+		local install_type=pip
+	    ;;
+	    *.yml)
+		local install_type=conda
+	    ;;
+	esac
+    elif [ -e environment.yml ]  ; then local install_type=conda ; local REQ_FILE=environment.yml
+    elif [ -e pylock.toml ]      ; then local install_type=pip   ; local REQ_FILE=pylock.toml
+    elif [ -e requirements.txt ] ; then	local install_type=pip   ; local REQ_FILE=requirements.txt
+    fi
+    # Warn if nothing was detected
+    if [ -z "$REQ_FILE" ] ; then
+	echo "No requirements file auto-detected"
+	return 1
+    fi
+    echo "Installing $REQ_FILE with mode $install_type"
 
     # Handle Pip vs Conda specialities.
     local install_type install_command
     local IMG BIND_CACHE
-    if [ "$install_type" = pip ] || { test -z "$install_type" && test -e requirements.txt ; } ; then
+    if [ "$install_type" = pip ] ; then
 	if ! test -e "$VENV_APPTAINER_IMAGE" ; then
 	    apptainer pull "$VENV_APPTAINER_IMAGE" docker://python:3.13.14-trixie
 	fi
-	install_type='pip'
-	install_command='python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install -r ${REQ_FILE:-requirements.txt}'
+	install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install -r ${REQ_FILE:-requirements.txt}"
 	IMG="$VENV_APPTAINER_IMAGE"
 	mkdir -p "$HOME"/.cache/pip-apptainer
 	BIND_CACHE=--bind="$HOME"/.cache/pip-apptainer/:"$HOME"/.cache/pip
 	SQUASHFS_FILE=venv.squashfs
-    elif [ "$install_type" = conda ] || { test -z "$install_type" && test -e environment.yml ; } ; then
+    elif [ "$install_type" = conda ] ; then
 	if ! test -e "$CONDA_APPTAINER_IMAGE" ; then
 	    apptainer pull "$CONDA_APPTAINER_IMAGE" docker://condaforge/miniforge3:26.3.2-3
 	fi
-	install_type='conda'
 	install_command="conda env create --yes -p /venv-apptainer -f ${REQ_FILE:-environment.yml}"
 	IMG="$CONDA_APPTAINER_IMAGE"
 	mkdir -p "$HOME"/.cache/conda-apptainer "$HOME"/.conda-apptainer/
@@ -88,6 +119,11 @@ function vea() {
 	echo "No requirements file found (requirements.txt or environment.yml)"
 	return 1
     fi
+
+    # Make the environment directories
+    mkdir -p "$BASE"/venv
+    mkdir -p "$BASE"/bin
+    mkdir -p "$BASE"/tmp
 
     # Do the actual building
     apptainer exec \
