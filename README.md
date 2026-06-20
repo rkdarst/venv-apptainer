@@ -21,7 +21,7 @@ stored outside and bound inside (and the container image is completely
 standard `python`).
 
 `vea` builds or activates the environment.  Basically, change to the
-dir and run it, and you'll get set up.
+dir and run `vea`, and you'll get set up with a old or new setup.
 
 There is preliminary support for Conda, which is activated when a
 environment.yml file is detected.  `zsh` should also be supported but
