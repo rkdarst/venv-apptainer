@@ -124,6 +124,14 @@ When installing,
 - Investigate locale handling
 
 
+## Other notes
+
+- To ignore `venva/` directories, I recommend setting `git config
+  --global core.excludesfile ~/.gitignore` and then setting your
+  personal workflow's exclusions in `~/.gitignore` (such as
+  `/venva/`), rather than copy it to every repository you work on.
+
+
 ## See also
 
 * `venv-apptainer1.sh` is the old version that does build a new image
