@@ -27,9 +27,16 @@ There is preliminary support for Conda, which is activated when a
 environment.yml file is detected.  `zsh` should also be supported but
 it needs testing.
 
-*This should work but is still in testing.  Report issues and they are
-likely to be fixed (as of 2026).  This is also mainly designed around
-my tastes.*
+
+## Status and development
+
+This should work but is still in testing.  Report issues and they are
+likely to be fixed (as of 2026).
+
+This was also mainly designed for my own use to replace my old `ve`
+alias, but then I did more work so that it might be useful to others.
+If it does become useful, I will work to improve documentation and
+code further.
 
 
 ## The concept / design criteria
@@ -131,11 +138,18 @@ When installing,
   personal workflow's exclusions in `~/.gitignore` (such as
   `/venva/`), rather than copy it to every repository you work on.
 
+## `venv-apptainer1.sh`
+
+This was an older version of this project (it minimally worked, but
+not enough to really use).  It was designed to build a new, separate
+container for every environment, with only `$PWD` mounted inside of
+it.
+
+Don't use it as it is, but if you want me to fix it up, let me know.
+
 
 ## See also
 
-* `venv-apptainer1.sh` is the old version that does build a new image
-  for every virtual environment.  Not up to date.
 * Somewhat inspired by https://github.com/bast/apptainer-venv (but
   redesigned for more isolation and being similar to my previous
   `ve` alias).  `venv-apptainer2.sh` follows the lessons from here.
