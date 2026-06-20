@@ -2,24 +2,34 @@
 
 `venv-apptainer2.sh` adds a shell function `vea` builds virtual
 environments in apptainer to protect against supply chain attacks.
-Note that containers are not perfect protection.
+(Note that containers are not perfect protection).  Anyone can
+manually build containers when needed, but this makes it automatic.
+Basically:
 
-The general idea is that a shell alias `vea` automatically builds the
-environment from `./requirements.txt` at `./venva/`.  It doesn't make
-a container with the environment within it (that was
-`venv-apptainer1.sh`), the environment is built and stored outside and
-bound inside (and the container image is completely standard
-`python`).  The shell alias also activates a path (`./venva/bin/`)
-that transparently runs commands within the container.
+* You have a project directory with `requirements.txt` or
+  `environment.yml`.
+* You run the shell function `vea` (sourced in .bashrc)
+* Environment is built in a container and wrapper scripts are added to
+  `$PATH`.  If it already exists in the current dir, activate it
+  instead.
+* Everything is stored in `./venva/`.  Delete or move the dir to
+  rebuild.
 
-If an environment already exists, `vea` activates it.  That way, `vea`
-will set you up no matter your current state.
+It doesn't make a container with the environment within it (that was
+an old approach in `venv-apptainer1.sh`), the environment is built and
+stored outside and bound inside (and the container image is completely
+standard `python`).
+
+`vea` builds or activates the environment.  Basically, change to the
+dir and run it, and you'll get set up.
 
 There is preliminary support for Conda, which is activated when a
-environment.yml file is detected.
+environment.yml file is detected.  `zsh` should also be supported but
+it needs testing.
 
-*Not fully documented yet, since it's still in development.  It's also
-designed around my own tastes.*
+*This should work but is still in testing.  Report issues and they are
+likely to be fixed (as of 2026).  This is also mainly designed around
+my tastes.*
 
 
 ## The concept / design criteria
@@ -77,6 +87,7 @@ the state is.
 $ source venv-apptainer2.sh    # could be put in .bashrc
 
 $ vea                          # Build from requirements.txt in this directory
+$ vea [req_file]               # Use this as the requirements.txt file.
 $ vea                          # Activate if it already exists
                                # ./venva/bin is added to PATH.
 
@@ -92,6 +103,16 @@ Force a rebuild:
 $ rm -r venva/
 $ vea
 ```
+
+When installing,
+
+* `vea FILENAME` will use that as the requiremnets file.  `*.txt` and
+  `*.toml` will be installed with pip and `*.yml` will be installed
+  with conda.
+* `vea --conda` will force conda mode and use `environment.yml` by
+  default.
+* `vea --pip` will force pip mode and detect `pylock.toml` and
+  `requirements.txt` in that order.
 
 
 ## To do
@@ -110,3 +131,5 @@ $ vea
 * Somewhat inspired by https://github.com/bast/apptainer-venv (but
   redesigned for more isolation and being similar to my previous
   `ve` alias).  `venv-apptainer2.sh` follows the lessons from here.
+* Tool for creating minimal envs in a container:
+  https://github.com/simo-tuomisto/micromamba-apptainer
