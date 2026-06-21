@@ -1,5 +1,6 @@
 # Store images in ~/sys/ if it exists.  Otherwise in the location of
-# this script.
+# this script.  If these variables are already defined, do nothing.
+# There is no built-in way to override images for only one venv (yet).
 if [ -d ~/sys/ ] ; then
     : "${VENV_APPTAINER_IMAGE:=$HOME/sys/python-3.14.sif}"
     : "${CONDA_APPTAINER_IMAGE:=$HOME/sys/miniforge-26.sif}"
@@ -12,11 +13,14 @@ else
 
 fi
 
+# Shell function.  This is made to be sourced in .bashrc to always be
+# available.
 function vea() {
     #set -x
     local BASE=venva                 # base path for env
     local PATH_IN=/venv-apptainer/   # mountd path in the container
 
+    # Parse command line arguments.
     while [[ $# -gt 0 ]]; do
         case $1 in
             -h|--help)
@@ -56,7 +60,7 @@ function vea() {
         esac
     done
 
-    # Environment seems to already exist, so activate it.
+    # If the environment seems to already exist, so activate it and return.
     # Delete the $BASE (./venva/) directory to re-create.
     if test -z "$VENVA_FORCE" -a -e "$BASE" ; then
         #PATH="$PWD/$BASE/bin/":"$PATH"
@@ -66,7 +70,9 @@ function vea() {
         return
     fi
 
-    # Detect what our mode should be
+    # Detect what our mode should be (pip, conda, which requirements
+    # file).  Priority to --pip or --conda, then environment.yml,
+    # pylock.toml, requirements.txt in that order.
     if   [ "$install_type" = pip ] ; then
         if -n "$REQ_FILE" ; then
             test -e requirements.txt && local REQ_FILE=requirements.txt
@@ -173,22 +179,22 @@ function vea() {
     fi
     chmod a+x "$BASE"/exec
 
-    # Activate script.  The ${BASH_SOURCE:-${(%):-%x}} construct
-    # allows something like BASH_SOURCE on zsh, too.
-    echo 'PATH="$(realpath $(dirname ${BASH_SOURCE:-${(%):-%x}}))"/bin/:"$PATH"' > "$BASE"/activate
-    echo 'VIRTUAL_ENV="$(basename $(dirname ${BASH_SOURCE:-${(%):-%x}}))"' >> "$BASE"/activate
-
-
-    # In $BASE/bin/, install wrappers for all programs within the environment
+    # In $BASE/bin/, install wrappers for all programs within the
+    # environment (/venv-apptainer/bin/ on the container).  These
+    # transparently run the respective programs within the container.
     for executable in $(./"$BASE"/exec ls "$PATH_IN"/bin/) ; do
         echo 'BASE="$(dirname $0)/../"' > "$BASE"/bin/"$executable"
         echo "$BASE"/exec "$executable" '"$@"' >> "$BASE"/bin/"$executable"
         chmod a+x "$BASE"/bin/"$executable"
     done
 
+    # Create the activate script, which adds the venv to the path.
+    # The ${BASH_SOURCE:-${(%):-%x}} construct allows something like
+    # BASH_SOURCE on zsh, too.
+    echo 'PATH="$(realpath $(dirname ${BASH_SOURCE:-${(%):-%x}}))"/bin/:"$PATH"' > "$BASE"/activate
+    echo 'VIRTUAL_ENV="$(basename $(dirname ${BASH_SOURCE:-${(%):-%x}}))"' >> "$BASE"/activate
+
     # Activate the environment
-    #PATH="$PWD"/venva/bin/:"$PATH"
-    #VIRTUAL_ENV=venva
     source "$BASE"/activate
     #set +x
 }

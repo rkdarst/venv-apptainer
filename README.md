@@ -10,8 +10,8 @@ Basically:
   `environment.yml`.
 * You run the shell function `vea` (sourced in .bashrc)
 * Environment is built in a container and wrapper scripts are added to
-  `$PATH`.  If it already exists in the current dir, activate it
-  instead.
+  `$PATH` (so that you can transparently run these commands).  If it
+  already exists in the current dir, activate it instead.
 * Everything is stored in `./venva/`.  Delete or move the dir to
   rebuild.
 
@@ -128,7 +128,13 @@ When installing,
 - There may be some nested unquoted variable expansions. (perhaps done)
 - It will fail on directories with a `:` (colon) anywhere in the
   absolute path.
-- Investigate locale handling
+- Investigate locale handling.
+- There's no way to set an image explicitly (and it assumes
+  everything uses the same images).
+- It uses the directory `./venva/` (on host) and `/venv-apptainer/`
+  (inside container) even if it builds with conda.
+- There is no way to deactivate an environment (it's permanently added
+  to `$PATH`).
 
 
 ## Other notes
