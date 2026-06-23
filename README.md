@@ -161,3 +161,9 @@ Don't use it as it is, but if you want me to fix it up, let me know.
   `ve` alias).  `venv-apptainer2.sh` follows the lessons from here.
 * Tool for creating minimal envs in a container:
   https://github.com/simo-tuomisto/micromamba-apptainer
+* Tykky / the HPC container wrapper
+  (https://github.com/CSCfi/hpc-container-wrapper)
+  ([docs](https://docs.csc.fi/computing/containers/tykky/)) mostly
+  does the same things, making an environment in a directory with
+  wrapper scripts.  venv-apptainer is more automatic and contained
+  within one script (but is perhaps more limited in scope).
