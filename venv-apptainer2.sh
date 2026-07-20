@@ -184,7 +184,7 @@ function vea() {
     # transparently run the respective programs within the container.
     for executable in $(./"$BASE"/exec ls "$PATH_IN"/bin/) ; do
         echo 'BASE="$(dirname $0)/../"' > "$BASE"/bin/"$executable"
-        echo "$BASE"/exec "$executable" '"$@"' >> "$BASE"/bin/"$executable"
+        echo '"$BASE"/exec' "$executable" '"$@"' >> "$BASE"/bin/"$executable"
         chmod a+x "$BASE"/bin/"$executable"
     done
 
