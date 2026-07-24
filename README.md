@@ -38,6 +38,13 @@ alias, but then I did more work so that it might be useful to others.
 If it does become useful, I will work to improve documentation and
 code further.
 
+The shell looks in-decipherable enough you might think it was
+generated with "AI" but every bit was figured out, validated, and
+finally written in the script by a human (with some help from
+chatbots).  It's complex to handle things like spaces in paths and
+bash/zsh compatibility.  Point is, you can ask me to figure out bugs
+rather than try to read it yourself.
+
 
 ## The concept / design criteria
 
