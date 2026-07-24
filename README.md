@@ -131,13 +131,13 @@ When installing,
 
 ## To do
 
-- Practical testing by others, to see if it's ready for broad aption.
-- There may be some nested unquoted variable expansions. (perhaps done)
+- Practical testing by others, to see if it's ready for broad adoption.
+- ~~There may be some nested unquoted variable expansions.~~ (perhaps done)
 - It will fail on directories with a `:` (colon) anywhere in the
   absolute path.
 - Investigate locale handling.
-- There's no way to set an image explicitly (and it assumes
-  everything uses the same images).
+- ~~There's no way to set an image explicitly (and it assumes
+  everything uses the same images).~~ (done)
 - It uses the directory `./venva/` (on host) and `/venv-apptainer/`
   (inside container) even if it builds with conda.
 - There is no way to deactivate an environment (it's permanently added

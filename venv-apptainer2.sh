@@ -30,6 +30,7 @@ function vea() {
                 echo "REQ_FILE       Use this requirements file (default: detect"
                 echo "               environment.yml, pylock.toml, requirements.txt"
                 echo "               in that order)"
+                echo "--img IMG.sif  Override apptainer image file"
                 echo "--force        force a rebuild"
                 echo "--no-squash    Don't compact to a squashfs filesystem.  Allows"
                 echo "               updating/editing later"
@@ -43,6 +44,7 @@ function vea() {
                 return
                 ;;
             --verbose)    trap 'set +x' RETURN ; set -x ;      shift   ;;
+            --img)        local IMG="$2";                      shift 2 ;;
             -f|--force)   local VENVA_FORCE=true ;             shift   ;;
             --no-squash)  local NO_SQUASH=true ;               shift   ;;
             --bind)             BINDS+=(--bind="$2") ;         shift 2 ;;
@@ -100,7 +102,7 @@ function vea() {
             apptainer pull "$VENV_APPTAINER_IMAGE" docker://python:3.13.14-trixie
         fi
         install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install -r ${REQ_FILE:-requirements.txt}"
-        IMG="$VENV_APPTAINER_IMAGE"
+        IMG="${IMG:-$VENV_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/pip-apptainer
         BINDS+=("--bind=$HOME/.cache/pip-apptainer/:$HOME/.cache/pip")
         SQUASHFS_FILE=venv.squashfs
@@ -109,7 +111,7 @@ function vea() {
             apptainer pull "$CONDA_APPTAINER_IMAGE" docker://condaforge/miniforge3:26.3.2-3
         fi
         install_command="conda env create --yes -p /venv-apptainer -f ${REQ_FILE:-environment.yml}"
-        IMG="$CONDA_APPTAINER_IMAGE"
+        IMG="${IMG:-$CONDA_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/conda-apptainer "$HOME"/.conda-apptainer/
         BINDS+=("--bind=$HOME/.cache/conda-apptainer/:$HOME/.cache/conda/")
         BINDS+=("--bind=$HOME/.conda-apptainer/:$HOME/.conda/")
