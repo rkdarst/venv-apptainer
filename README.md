@@ -129,6 +129,26 @@ When installing,
   `requirements.txt` in that order.
 
 
+## HOW-TOs
+
+**You want to install a project from a different directory with `pip
+install -e` for development purposes**
+
+```console
+## First make an venv-a in the current dir
+$ vea --no-squash --bind-ro ~/git/sphinx-misc-rkdarst/
+
+## Now you can install from the other directory transparently.  Note
+## this is running inside the container and the target dir is mounted
+## inside the container.
+$ pip install -e ~/git/sphinx-misc-rkdarst/
+
+## Editing the other directory affects this project "live" (this is
+## how `pip install` -e works)
+$ emacs ~/git/sphinx-misc-rkdarst/module/__init__.py
+```
+
+
 ## To do
 
 - Practical testing by others, to see if it's ready for broad adoption.
@@ -168,9 +188,16 @@ Don't use it as it is, but if you want me to fix it up, let me know.
   `ve` alias).  `venv-apptainer2.sh` follows the lessons from here.
 * Tool for creating minimal envs in a container:
   https://github.com/simo-tuomisto/micromamba-apptainer
+  * This has the whole IDE (vscodium, etc.) installed within the
+    apptainer.  This is better when your IDE is itself running LLM
+    agents.
 * Tykky / the HPC container wrapper
   (https://github.com/CSCfi/hpc-container-wrapper)
   ([docs](https://docs.csc.fi/computing/containers/tykky/)) mostly
   does the same things, making an environment in a directory with
-  wrapper scripts.  venv-apptainer is more automatic and contained
-  within one script (but is perhaps more limited in scope).
+  wrapper scripts.
+  * This is designed to tightly integrate with the system, mounting in
+    things such as MPI libraries.  This requires more per-system
+    configuration and doesn't isolate by default.
+  * venv-apptainer is more automatic and contained
+    within one script (but more limited to containment).
