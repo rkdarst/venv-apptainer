@@ -129,6 +129,21 @@ When installing,
   `requirements.txt` in that order.
 
 
+## What can be touched on your system
+
+* `~/sys/` (if it exists) or `$(dirname venv-apptainer2.sh)`:
+  automatically downloaded apptainer images (unless you override/put
+  some there first).
+* `$PWD/venva/`: all runtime for a certain project.  If you look
+  itside it should make sense.
+* Cache directories (depending on mode), persistent across projects
+  and not cleaned automatically
+  * `~/.cache/pip-apptainer/`
+  * `~/.cache/conda-apptainer/`
+  * `~/.conda-apptainer/`
+
+
+
 ## HOW-TOs
 
 **You want to install a project from a different directory with `pip
@@ -159,7 +174,10 @@ $ emacs ~/git/sphinx-misc-rkdarst/module/__init__.py
 - ~~There's no way to set an image explicitly (and it assumes
   everything uses the same images).~~ (done)
 - It uses the directory `./venva/` (on host) and `/venv-apptainer/`
-  (inside container) even if it builds with conda.
+  (inside container) even if it builds with conda.  The names may be
+  confusing.
+- Image selection (You can use `--img` now, make it easy to
+  permanently configure).
 - There is no way to deactivate an environment (it's permanently added
   to `$PATH`).
 
