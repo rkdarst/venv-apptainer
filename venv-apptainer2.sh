@@ -31,7 +31,9 @@ function vea() {
                 echo "               environment.yml, pylock.toml, requirements.txt"
                 echo "               in that order)"
                 echo "--img IMG.sif  Override apptainer image file"
-                echo "--force        force a rebuild"
+                echo "--force        Force a rebuild.  Doesn't delete old files, only"
+		echo "               deletes a possible squashfs. Otherwise, installs"
+		echo "               on top of old files.  Beware of problems."
                 echo "--no-squash    Don't compact to a squashfs filesystem.  Allows"
                 echo "               updating/editing later"
                 echo "--pip          Install file with pip"
@@ -62,6 +64,12 @@ function vea() {
         #VIRTUAL_ENV="$BASE"
         source "$BASE"/activate
         return
+    fi
+
+    # If force mode: delete the environment
+    if test -n "$VENVA_FORCE" -a -e "$BASE"/venv.squashfs ; then
+	echo "Deleting $BASE/venv.squashfs"
+	rm -v "$BASE"/venv.squashfs
     fi
 
     # Detect what our mode should be (pip, conda, which requirements
