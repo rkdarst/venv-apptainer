@@ -127,6 +127,12 @@ When installing,
   default.
 * `vea --pip` will force pip mode and detect `pylock.toml` and
   `requirements.txt` in that order.
+* `vea {--pip|--conda} arg arg ...` (multiple arguments) will run
+  pip/conda with exactly the arguments you give on the command line.
+  This allows you to control the command line, so that you can for
+  example run `-r requirements.txt other_package -e ../my-package/` to
+  fully control what is installed through the command line.  This
+  could be used, for example.
 
 
 ## What can be touched on your system
@@ -162,6 +168,14 @@ $ pip install -e ~/git/sphinx-misc-rkdarst/
 ## how `pip install` -e works)
 $ emacs ~/git/sphinx-misc-rkdarst/module/__init__.py
 ```
+
+You can also do this all in one command:
+```console
+## Combines the above with a full command line.  This may give
+## conflicts if the local package is also in requirements.txt
+$ vea --bind-ro $PWD/git/sphinx-misc-rkdarst/ --pip -r requirements.txt -e ~/git/sphinx-misc-rkdarst/
+```
+
 
 
 ## To do

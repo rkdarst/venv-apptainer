@@ -25,21 +25,24 @@ function vea() {
     while [[ $# -gt 0 ]]; do
         case $1 in
             -h|--help)
-                echo "usage: vea REQ_FILE"
+                echo "usage: vea [INSTALL_OPTS [...]]"
                 echo
-                echo "REQ_FILE       Use this requirements file (default: detect"
-                echo "               environment.yml, pylock.toml, requirements.txt"
-                echo "               in that order)"
+                echo "INSTALL_OPTS   If one argument: use this requirements file"
+                echo "               (default: detect environment.yml, pylock.toml,"
+                echo "               requirements.txt in that order)"
+                echo "               Multiple arguments: pass these arguments to pip/"
+                echo "               conda/etc.  Default pip, use --conda for conda."
+                echo "               Example: venva -r requirements.txt extra_package"
                 echo "--img IMG.sif  Override apptainer image file"
                 echo "--force        Force a rebuild.  Doesn't delete old files, only"
-		echo "               deletes a possible squashfs. Otherwise, installs"
-		echo "               on top of old files.  Beware of problems."
+                echo "               deletes a possible squashfs. Otherwise, installs"
+                echo "               on top of old files.  Beware of problems."
                 echo "--no-squash    Don't compact to a squashfs filesystem.  Allows"
                 echo "               updating/editing later"
                 echo "--pip          Install file with pip"
                 echo "--conda        Install file with conda"
                 echo "--bind BIND    Extra binds (may be given multiple times)"
-                echo "               Same format as apptainer."
+                echo "               Same format as apptainer.  Must be absolute path."
                 echo "--bind-ro BIND Like above but expanded to BIND:BIND:ro"
                 echo "--verbose      Run with set -x"
                 shift
@@ -53,7 +56,7 @@ function vea() {
             --bind-ro)          BINDS+=(--bind="$2":"$2":ro) ; shift 2 ;;
             --pip)        local install_type=pip ;             shift   ;;
             --conda)      local install_type=conda ;           shift   ;;
-            *)            local REQ_FILE="$1" ;                shift   ;;
+            *)            local INSTALL_OPTS=("$@") ;          break   ;;
         esac
     done
 
@@ -68,39 +71,45 @@ function vea() {
 
     # If force mode: delete the environment
     if test -n "$VENVA_FORCE" -a -e "$BASE"/venv.squashfs ; then
-	echo "Deleting $BASE/venv.squashfs"
-	rm -v "$BASE"/venv.squashfs
+        echo "Deleting $BASE/venv.squashfs"
+        rm -v "$BASE"/venv.squashfs
     fi
 
     # Detect what our mode should be (pip, conda, which requirements
     # file).  Priority to --pip or --conda, then environment.yml,
     # pylock.toml, requirements.txt in that order.
     if   [ "$install_type" = pip ] ; then
-        if -n "$REQ_FILE" ; then
-            test -e requirements.txt && local REQ_FILE=requirements.txt
-            test -e pylock.toml && local REQ_FILE=pylock.toml
+        if -z "$INSTALL_OPTS" ; then
+            test -e requirements.txt && local INSTALL_OPTS=(-r requirements.txt)
+            test -e pylock.toml && local INSTALL_OPTS=(-r pylock.toml)
         fi
     elif [ "$install_type" = conda ] ; then
-        test -n "$REQ_FILE" || local REQ_FILE=environment.yml
-    elif [ -n "$REQ_FILE" ] ; then
-        case "$REQ_FILE" in
+        test -z "$INSTALL_OPTS" || local INSTALL_OPTS=(-f environment.yml)
+    # One argument - requirements file
+    elif [ "${#INSTALL_OPTS[@]}" -eq 1 ] ; then
+        case "${INSTALL_OPTS[0]}" in
             *.txt|*.toml)
                 local install_type=pip
+                local INSTALL_OPTS=(-r "${INSTALL_OPTS[@]}")
             ;;
             *.yml)
                 local install_type=conda
+                local INSTALL_OPTS=(-f "${INSTALL_OPTS[@]}")
             ;;
         esac
-    elif [ -e environment.yml ]  ; then local install_type=conda ; local REQ_FILE=environment.yml
-    elif [ -e pylock.toml ]      ; then local install_type=pip   ; local REQ_FILE=pylock.toml
-    elif [ -e requirements.txt ] ; then local install_type=pip   ; local REQ_FILE=requirements.txt
+    # Multi-arg options: install exactly with the args given
+    elif [ -n "$INSTALL_OPTS" ] ; then
+        local install_type=pip
+    elif [ -e environment.yml ]  ; then local install_type=conda ; local INSTALL_OPTS=(-f environment.yml)
+    elif [ -e pylock.toml ]      ; then local install_type=pip   ; local INSTALL_OPTS=(-r pylock.toml)
+    elif [ -e requirements.txt ] ; then local install_type=pip   ; local INSTALL_OPTS=(-r requirements.txt)
     fi
     # Warn if nothing was detected
-    if [ -z "$REQ_FILE" ] ; then
+    if [ -z "$INSTALL_OPTS" ] ; then
         echo "No requirements file auto-detected"
         return 1
     fi
-    echo "Installing $REQ_FILE with mode $install_type"
+    echo "Installing ${INSTALL_OPTS[@]} with mode $install_type"
 
     # Handle Pip vs Conda specialities.
     local install_type install_command
@@ -109,7 +118,7 @@ function vea() {
         if ! test -e "$VENV_APPTAINER_IMAGE" ; then
             apptainer pull "$VENV_APPTAINER_IMAGE" docker://python:3.13.14-trixie
         fi
-        install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install -r ${REQ_FILE:-requirements.txt}"
+        install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install ${INSTALL_OPTS[@]}"
         IMG="${IMG:-$VENV_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/pip-apptainer
         BINDS+=("--bind=$HOME/.cache/pip-apptainer/:$HOME/.cache/pip")
@@ -118,7 +127,7 @@ function vea() {
         if ! test -e "$CONDA_APPTAINER_IMAGE" ; then
             apptainer pull "$CONDA_APPTAINER_IMAGE" docker://condaforge/miniforge3:26.3.2-3
         fi
-        install_command="conda env create --yes -p /venv-apptainer -f ${REQ_FILE:-environment.yml}"
+        install_command="conda env create --yes -p /venv-apptainer ${INSTALL_OPTS[@]}"
         IMG="${IMG:-$CONDA_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/conda-apptainer "$HOME"/.conda-apptainer/
         BINDS+=("--bind=$HOME/.cache/conda-apptainer/:$HOME/.cache/conda/")
