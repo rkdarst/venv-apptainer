@@ -20,6 +20,7 @@ function vea() {
     local BASE=venva                 # base path for env
     local PATH_IN=/venv-apptainer/   # mountd path in the container
     local -a BINDS                   # for zsh must make this an array
+    local -a INSTALL_OPTS
 
     # Parse command line arguments.
     while [[ $# -gt 0 ]]; do
@@ -44,6 +45,10 @@ function vea() {
                 echo "--bind BIND    Extra binds (may be given multiple times)"
                 echo "               Same format as apptainer.  Must be absolute path."
                 echo "--bind-ro BIND Like above but expanded to BIND:BIND:ro"
+                echo "-e DIR         Automatic 'pip install -e' support.  Bind-ro mount"
+                echo "               and -e DIR for editable install.  You also need"
+                echo "               -r requirements.txt since it won't be automatic with"
+                echo "               this option."
                 echo "--verbose      Run with set -x"
                 shift
                 return
@@ -54,9 +59,11 @@ function vea() {
             --no-squash)  local NO_SQUASH=true ;               shift   ;;
             --bind)             BINDS+=(--bind="$2") ;         shift 2 ;;
             --bind-ro)          BINDS+=(--bind="$2":"$2":ro) ; shift 2 ;;
+            -e)                 BINDS+=(--bind="$2":"$2":ro) ;
+                                INSTALL_OPTS+=(-e "$2") ;      shift 2 ;;
             --pip)        local install_type=pip ;             shift   ;;
             --conda)      local install_type=conda ;           shift   ;;
-            *)            local INSTALL_OPTS=("$@") ;          break   ;;
+            *)            local INSTALL_OPTS+=("$@") ;         break   ;;
         esac
     done
 
@@ -80,36 +87,35 @@ function vea() {
     # pylock.toml, requirements.txt in that order.
     if   [ "$install_type" = pip ] ; then
         if -z "$INSTALL_OPTS" ; then
-            test -e requirements.txt && local INSTALL_OPTS=(-r requirements.txt)
-            test -e pylock.toml && local INSTALL_OPTS=(-r pylock.toml)
+            test -e requirements.txt && local INSTALL_OPTS+=(-r requirements.txt)
+            test -e pylock.toml && local INSTALL_OPTS+=(-r pylock.toml)
         fi
     elif [ "$install_type" = conda ] ; then
-        test -z "$INSTALL_OPTS" || local INSTALL_OPTS=(-f environment.yml)
+        test -z "$INSTALL_OPTS" || local INSTALL_OPTS+=(-f environment.yml)
     # One argument - requirements file
     elif [ "${#INSTALL_OPTS[@]}" -eq 1 ] ; then
         case "${INSTALL_OPTS[0]}" in
             *.txt|*.toml)
                 local install_type=pip
-                local INSTALL_OPTS=(-r "${INSTALL_OPTS[@]}")
+                local INSTALL_OPTS+=(-r "${INSTALL_OPTS[@]}")
             ;;
             *.yml)
                 local install_type=conda
-                local INSTALL_OPTS=(-f "${INSTALL_OPTS[@]}")
+                local INSTALL_OPTS+=(-f "${INSTALL_OPTS[@]}")
             ;;
         esac
     # Multi-arg options: install exactly with the args given
     elif [ -n "$INSTALL_OPTS" ] ; then
         local install_type=pip
-    elif [ -e environment.yml ]  ; then local install_type=conda ; local INSTALL_OPTS=(-f environment.yml)
-    elif [ -e pylock.toml ]      ; then local install_type=pip   ; local INSTALL_OPTS=(-r pylock.toml)
-    elif [ -e requirements.txt ] ; then local install_type=pip   ; local INSTALL_OPTS=(-r requirements.txt)
+    elif [ -e environment.yml ]  ; then local install_type=conda ; local INSTALL_OPTS+=(-f environment.yml)
+    elif [ -e pylock.toml ]      ; then local install_type=pip   ; local INSTALL_OPTS+=(-r pylock.toml)
+    elif [ -e requirements.txt ] ; then local install_type=pip   ; local INSTALL_OPTS+=(-r requirements.txt)
     fi
     # Warn if nothing was detected
     if [ -z "$INSTALL_OPTS" ] ; then
         echo "No requirements file auto-detected"
         return 1
     fi
-    echo "Installing ${INSTALL_OPTS[@]} with mode $install_type"
 
     # Handle Pip vs Conda specialities.
     local install_type install_command
@@ -137,6 +143,9 @@ function vea() {
         echo "No requirements file found (requirements.txt or environment.yml)"
         return 1
     fi
+
+    echo "Installing ${INSTALL_OPTS[@]} with mode $install_type"
+    echo "Binds: ${BINDS[@]}"
 
     # Make the environment directories
     mkdir -p "$BASE"/venv
