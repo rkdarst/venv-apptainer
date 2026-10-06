@@ -118,13 +118,14 @@ function vea() {
     fi
 
     # Handle Pip vs Conda specialities.
-    local install_type install_command
+    local install_type install_command run_command
     local IMG
     if [ "$install_type" = pip ] ; then
         if ! test -e "$VENV_APPTAINER_IMAGE" ; then
             apptainer pull "$VENV_APPTAINER_IMAGE" docker://python:3.13.14-trixie
         fi
         install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install ${INSTALL_OPTS[@]}"
+	run_command='bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" - "$@"'
         IMG="${IMG:-$VENV_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/pip-apptainer
         BINDS+=("--bind=$HOME/.cache/pip-apptainer/:$HOME/.cache/pip")
@@ -134,6 +135,7 @@ function vea() {
             apptainer pull "$CONDA_APPTAINER_IMAGE" docker://condaforge/miniforge3:26.3.2-3
         fi
         install_command="conda env create --yes -p /venv-apptainer ${INSTALL_OPTS[@]}"
+	run_command='bash -c "source activate /venv-apptainer ; \${@:-bash}" - "$@"'
         IMG="${IMG:-$CONDA_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/conda-apptainer "$HOME"/.conda-apptainer/
         BINDS+=("--bind=$HOME/.cache/conda-apptainer/:$HOME/.cache/conda/")
@@ -186,21 +188,12 @@ function vea() {
     echo '#!/bin/bash' > "$BASE"/exec   # bash not ideal but needs better than sh
     echo 'BASE="$(dirname "$0")"' >> "$BASE"/exec
     echo "BINDS=($(printf '%q\n' "${BINDS[@]}"))" >> "$BASE"/exec
-    if [ "$install_type" = pip ]; then
-        echo apptainer exec $BIND_ENV \
-             --contain --env LANG=C --env LC_ALL=C \
-             --bind '"$PWD:$PWD"' '"${BINDS[@]}"' \
-             --cwd '"$PWD"' '--workdir="$BASE"/tmp' \
-             "$IMG" 'bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" - "$@"' \
-             >> "$BASE/exec"
-    elif [ "$install_type" = conda ] ; then
-        echo apptainer exec $BIND_ENV \
-             --contain --env LANG=C --env LC_ALL=C \
-             --bind '"$PWD:$PWD"' '"${BINDS[@]}"' \
-             --cwd '"$PWD"' '--workdir="$BASE"/tmp' \
-             "$IMG" 'bash -c "source activate /venv-apptainer ; \${@:-bash}" - "$@"' \
-             >> "$BASE"/exec
-    fi
+    echo apptainer exec $BIND_ENV \
+         --contain --env LANG=C --env LC_ALL=C \
+         --bind '"$PWD:$PWD"' '"${BINDS[@]}"' \
+         --cwd '"$PWD"' '--workdir="$BASE"/tmp' \
+         "$IMG" "$run_command" \
+         >> "$BASE/exec"
     chmod a+x "$BASE"/exec
 
     # In $BASE/bin/, install wrappers for all programs within the
