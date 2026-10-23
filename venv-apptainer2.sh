@@ -4,13 +4,14 @@
 if [ -d ~/sys/ ] ; then
     : "${VENV_APPTAINER_IMAGE:=$HOME/sys/python-3.14.sif}"
     : "${CONDA_APPTAINER_IMAGE:=$HOME/sys/miniforge-26.sif}"
+    : "${UV_APPTAINER_IMAGE:=$HOME/sys/uv-0.13.sif}"
 else
     # The crazy construct ${BASH_SOURCE:-${(%):-%x}} (also seen below)
     # is a way to emulate $BASH_SOURCE on zsh (and this form works for
     # both bash and zsh)
     : "${VENV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/python-3.14.sif)\"}"
     : "${CONDA_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/miniforge-26.sif)\"}"
-
+    : "${UV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/uv-0.13.sif)\"}"
 fi
 
 # Shell function.  This is made to be sourced in .bashrc to always be
@@ -21,6 +22,7 @@ function vea() {
     local PATH_IN=/venv-apptainer/   # mountd path in the container
     local -a BINDS                   # for zsh must make this an array
     local -a INSTALL_OPTS
+    local -a BIN_DIRS
 
     # Parse command line arguments.
     while [[ $# -gt 0 ]]; do
@@ -42,6 +44,7 @@ function vea() {
                 echo "               updating/editing later"
                 echo "--pip          Install file with pip"
                 echo "--conda        Install file with conda"
+                echo "--uv           Install file with uv"
                 echo "--bind BIND    Extra binds (may be given multiple times)"
                 echo "               Same format as apptainer.  Must be absolute path."
                 echo "--bind-ro BIND Like above but expanded to BIND:BIND:ro"
@@ -63,6 +66,7 @@ function vea() {
                                 INSTALL_OPTS+=(-e "$2") ;      shift 2 ;;
             --pip)        local install_type=pip ;             shift   ;;
             --conda)      local install_type=conda ;           shift   ;;
+            --uv)         local install_type=uv ;              shift   ;;
             *)            local INSTALL_OPTS+=("$@") ;         break   ;;
         esac
     done
@@ -91,7 +95,9 @@ function vea() {
             test -e pylock.toml && local INSTALL_OPTS+=(-r pylock.toml)
         fi
     elif [ "$install_type" = conda ] ; then
-        test -z "$INSTALL_OPTS" || local INSTALL_OPTS+=(-f environment.yml)
+        test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(-f environment.yml)
+    elif [ "$install_type" = uv ] ; then
+	test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(sync)
     # One argument - requirements file
     elif [ "${#INSTALL_OPTS[@]}" -eq 1 ] ; then
         case "${INSTALL_OPTS[0]}" in
@@ -141,6 +147,17 @@ function vea() {
         BINDS+=("--bind=$HOME/.cache/conda-apptainer/:$HOME/.cache/conda/")
         BINDS+=("--bind=$HOME/.conda-apptainer/:$HOME/.conda/")
         SQUASHFS_FILE=conda-env.squashfs
+    elif [ "$install_type" = uv ] ; then
+        if ! test -e "$UV_APPTAINER_IMAGE" ; then
+            apptainer pull "$UV_APPTAINER_IMAGE" docker://astral/uv:0.13-debian-slim
+        fi
+	IMG="${IMG:-$UV_APPTAINER_IMAGE}"
+        install_command="uv venv .venv ; uv ${INSTALL_OPTS[@]}"
+	run_command='bash -c "source .venv/bin/activate ; \${@:-bash}" - "$@"'
+	PATH_IN="$PWD"/.venv
+        mkdir -p "$HOME"/.cache/uv-apptainer
+	BINDS+=("--bind=$HOME/.cache/uv-apptainer:$HOME/.cache/uv")
+	BIN_DIRS+=('/usr/local/bin/')
     else
         echo "No requirements file found (requirements.txt or environment.yml)"
         return 1
@@ -149,6 +166,7 @@ function vea() {
     echo "Installing ${INSTALL_OPTS[@]} with mode $install_type"
     echo "Binds: ${BINDS[@]}"
 
+    BIN_DIRS+=("$PATH_IN"/bin/)
     # Make the environment directories
     mkdir -p "$BASE"/venv
     mkdir -p "$BASE"/bin
@@ -156,9 +174,9 @@ function vea() {
 
     # Do the actual building
     apptainer exec \
-              --bind="$BASE"/venv:"$PATH_IN" \
               --cwd "$PWD" \
               --bind "$PWD:$PWD" \
+              --bind="$BASE"/venv:"$PATH_IN" \
               "${BINDS[@]}" \
               --workdir="$BASE"/tmp \
               --contain --env LANG=C --env LC_ALL=C \
@@ -188,9 +206,11 @@ function vea() {
     echo '#!/bin/bash' > "$BASE"/exec   # bash not ideal but needs better than sh
     echo 'BASE="$(dirname "$0")"' >> "$BASE"/exec
     echo "BINDS=($(printf '%q\n' "${BINDS[@]}"))" >> "$BASE"/exec
-    echo apptainer exec $BIND_ENV \
+    echo apptainer exec \
          --contain --env LANG=C --env LC_ALL=C \
-         --bind '"$PWD:$PWD"' '"${BINDS[@]}"' \
+         --bind '"$PWD:$PWD"' \
+	 $BIND_ENV \
+	 '"${BINDS[@]}"' \
          --cwd '"$PWD"' '--workdir="$BASE"/tmp' \
          "$IMG" "$run_command" \
          >> "$BASE/exec"
@@ -199,10 +219,12 @@ function vea() {
     # In $BASE/bin/, install wrappers for all programs within the
     # environment (/venv-apptainer/bin/ on the container).  These
     # transparently run the respective programs within the container.
-    for executable in $(./"$BASE"/exec ls "$PATH_IN"/bin/) ; do
-        echo 'BASE="$(dirname "$0")/../"' > "$BASE"/bin/"$executable"
-        echo '"$BASE"/exec' "$executable" '"$@"' >> "$BASE"/bin/"$executable"
-        chmod a+x "$BASE"/bin/"$executable"
+    for BIN_DIR in "${BIN_DIRS[@]}" ; do
+        for executable in $(./"$BASE"/exec ls "$BIN_DIR") ; do
+            echo 'BASE="$(dirname "$0")/../"' > "$BASE"/bin/"$executable"
+            echo '"$BASE"/exec' "$executable" '"$@"' >> "$BASE"/bin/"$executable"
+            chmod a+x "$BASE"/bin/"$executable"
+        done
     done
 
     # Create the activate script, which adds the venv to the path.

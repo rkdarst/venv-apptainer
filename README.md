@@ -134,18 +134,28 @@ When installing,
   fully control what is installed through the command line.  This
   could be used, for example.
 
+### uv
 
-## What can be touched on your system
+Preliminary support.  The initial install with `vea` must be run with
+`--uv [uv_arguments_without_initial_uv]`, which first runs `uv venv
+.venv` and then whatever else you specify.  Example `vea --uv sync`
+which runs `uv sync`.  To install from `requirements.txt`, use `vea
+--uv pip install -r requirements.txt` which runs `uv pip install -r
+...` inside.
+
+
+## What can be modified on your system
 
 * `~/sys/` (if it exists) or `$(dirname venv-apptainer2.sh)`:
   automatically downloaded apptainer images (unless you override/put
   some there first).
 * `$PWD/venva/`: all runtime for a certain project.  If you look
-  itside it should make sense.
+  inside it should make sense.
 * Cache directories (depending on mode), persistent across projects
   and not cleaned automatically
   * `~/.cache/pip-apptainer/`
   * `~/.cache/conda-apptainer/`
+  * `~/.cache/uv-apptainer/`
   * `~/.conda-apptainer/`
 
 
