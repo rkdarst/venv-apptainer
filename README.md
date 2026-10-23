@@ -144,6 +144,29 @@ which runs `uv sync`.  To install from `requirements.txt`, use `vea
 ...` inside.
 
 
+### moat
+
+[moat](https://github.com/AaltoRSE/moat) is a tool that containerizes
+and constricts AI agents.  venv-apptainer does not replace that, but
+it can install and set up its Apptainer images.  Use moat for full
+configuration, use venv-apptainer only for the simple base case.  I
+have designed this only for VScodium/VScode use, for one project at a
+time.  It mounts a fake home dir at `~/.moat/home/` - same for all
+projects.
+
+This is still very alpha.
+
+**Initial setup**: `vea --moat` from the project directory.  There are
+no other configuration options (compared to moat that lets you set up
+different types of environments with different mounts for different
+projects).
+
+Re-activate an environment with `vea` (from the project directory).
+
+Run with `codium --wait .` or similar (it is transparently added to
+your $PATH).  Look at `./venva/bin/` to see what is available.
+
+
 ## What can be modified on your system
 
 * `~/sys/` (if it exists) or `$(dirname venv-apptainer2.sh)`:

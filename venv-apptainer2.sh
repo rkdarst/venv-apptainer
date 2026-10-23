@@ -5,6 +5,7 @@ if [ -d ~/sys/ ] ; then
     : "${VENV_APPTAINER_IMAGE:=$HOME/sys/python-3.14.sif}"
     : "${CONDA_APPTAINER_IMAGE:=$HOME/sys/miniforge-26.sif}"
     : "${UV_APPTAINER_IMAGE:=$HOME/sys/uv-0.13.sif}"
+    : "${MOAT_APPTAINER_IMAGE:=$HOME/sys/moat-0.3.2.sif}"
 else
     # The crazy construct ${BASH_SOURCE:-${(%):-%x}} (also seen below)
     # is a way to emulate $BASH_SOURCE on zsh (and this form works for
@@ -12,6 +13,7 @@ else
     : "${VENV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/python-3.14.sif)\"}"
     : "${CONDA_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/miniforge-26.sif)\"}"
     : "${UV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/uv-0.13.sif)\"}"
+    : "${MOAT_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/moat-0.3.2.sif)\"}"
 fi
 
 # Shell function.  This is made to be sourced in .bashrc to always be
@@ -21,8 +23,9 @@ function vea() {
     local BASE=venva                 # base path for env
     local PATH_IN=/venv-apptainer/   # mountd path in the container
     local -a BINDS                   # for zsh must make this an array
-    local -a INSTALL_OPTS
-    local -a BIN_DIRS
+    local -a INSTALL_OPTS            # Holds the requested command line args for installation
+    local -a BIN_DIRS                # Add programs from these paths to ./venva/bin/
+    local -a BIN_EXECS               # Add these programs to ./venva/bin/
 
     # Parse command line arguments.
     while [[ $# -gt 0 ]]; do
@@ -44,7 +47,8 @@ function vea() {
                 echo "               updating/editing later"
                 echo "--pip          Install file with pip"
                 echo "--conda        Install file with conda"
-                echo "--uv           Install file with uv"
+                echo "--uv           Install file with uv.  Alpha."
+                echo "--moat         Set up moat for AI agents.  Alpha."
                 echo "--bind BIND    Extra binds (may be given multiple times)"
                 echo "               Same format as apptainer.  Must be absolute path."
                 echo "--bind-ro BIND Like above but expanded to BIND:BIND:ro"
@@ -67,6 +71,7 @@ function vea() {
             --pip)        local install_type=pip ;             shift   ;;
             --conda)      local install_type=conda ;           shift   ;;
             --uv)         local install_type=uv ;              shift   ;;
+            --moat)       local install_type=moat ;            shift   ;;
             *)            local INSTALL_OPTS+=("$@") ;         break   ;;
         esac
     done
@@ -97,7 +102,9 @@ function vea() {
     elif [ "$install_type" = conda ] ; then
         test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(-f environment.yml)
     elif [ "$install_type" = uv ] ; then
-	test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(sync)
+        test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(sync)
+    elif [ "$install_type" = moat ] ; then
+        test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(n/a)
     # One argument - requirements file
     elif [ "${#INSTALL_OPTS[@]}" -eq 1 ] ; then
         case "${INSTALL_OPTS[0]}" in
@@ -131,33 +138,56 @@ function vea() {
             apptainer pull "$VENV_APPTAINER_IMAGE" docker://python:3.13.14-trixie
         fi
         install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install ${INSTALL_OPTS[@]}"
-	run_command='bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" - "$@"'
+        run_command='bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" [in-container] "$@"'
         IMG="${IMG:-$VENV_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/pip-apptainer
         BINDS+=("--bind=$HOME/.cache/pip-apptainer/:$HOME/.cache/pip")
+        BIN_DIRS+=("$PATH_IN"/bin/)
         SQUASHFS_FILE=venv.squashfs
     elif [ "$install_type" = conda ] ; then
         if ! test -e "$CONDA_APPTAINER_IMAGE" ; then
             apptainer pull "$CONDA_APPTAINER_IMAGE" docker://condaforge/miniforge3:26.3.2-3
         fi
         install_command="conda env create --yes -p /venv-apptainer ${INSTALL_OPTS[@]}"
-	run_command='bash -c "source activate /venv-apptainer ; \${@:-bash}" - "$@"'
+        run_command='bash -c "source activate /venv-apptainer ; \${@:-bash}" [in-container] "$@"'
         IMG="${IMG:-$CONDA_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/conda-apptainer "$HOME"/.conda-apptainer/
         BINDS+=("--bind=$HOME/.cache/conda-apptainer/:$HOME/.cache/conda/")
         BINDS+=("--bind=$HOME/.conda-apptainer/:$HOME/.conda/")
+        BIN_DIRS+=("$PATH_IN"/bin/)
         SQUASHFS_FILE=conda-env.squashfs
     elif [ "$install_type" = uv ] ; then
         if ! test -e "$UV_APPTAINER_IMAGE" ; then
             apptainer pull "$UV_APPTAINER_IMAGE" docker://astral/uv:0.13-debian-slim
         fi
-	IMG="${IMG:-$UV_APPTAINER_IMAGE}"
+        IMG="${IMG:-$UV_APPTAINER_IMAGE}"
         install_command="uv venv .venv ; uv ${INSTALL_OPTS[@]}"
-	run_command='bash -c "source .venv/bin/activate ; \${@:-bash}" - "$@"'
-	PATH_IN="$PWD"/.venv
+        run_command='bash -c "source .venv/bin/activate ; \${@:-bash}" [in-container] "$@"'
+        PATH_IN="$PWD"/.venv
         mkdir -p "$HOME"/.cache/uv-apptainer
-	BINDS+=("--bind=$HOME/.cache/uv-apptainer:$HOME/.cache/uv")
-	BIN_DIRS+=('/usr/local/bin/')
+        BINDS+=("--bind=$HOME/.cache/uv-apptainer:$HOME/.cache/uv")
+        BIN_DIRS+=("$PATH_IN"/bin/)
+        BIN_DIRS+=('/usr/local/bin/')
+        SQUASHFS_FILE=uv-env.squashfs
+    elif [ "$install_type" = moat ] ; then
+        if ! test -e "$MOAT_APPTAINER_IMAGE" ; then
+            apptainer pull "$MOAT_APPTAINER_IMAGE" docker://ghcr.io/aaltorse/moat:v0.3.2
+        fi
+        IMG="${IMG:-$MOAT_APPTAINER_IMAGE}"
+        install_command=true
+        #run_command='bash -c "true ; \${@:-bash}" [in-container] "$@"'
+        run_command='bash -c "export PATH=\$PATH:/opt/nvm/versions/node/v24.22.0/bin/ ; \${@:-bash}" [in-container] "$@"'
+        local MOAT_HOME="$HOME/.moat/home/"
+        mkdir -p "$MOAT_HOME"/"$(realpath "$PWD" --relative-to "$HOME")"
+        BINDS+=("--bind=$MOAT_HOME:$HOME/")
+        BINDS+=("--bind=/run/user/1300204/")
+        BINDS+=("--bind=/dev/null:/run/user/1300204/bus")
+        BINDS+=("--bind=/run/dbus")
+        BIN_DIRS+=("/usr/local/bin/")
+        BIN_DIRS+=("/usr/share/code/bin/")
+        BIN_DIRS+=("/usr/share/codium/bin/")
+        BIN_DIRS+=("/opt/nvm/versions/node/v24.22.0/bin/")
+        SQUASHFS_FILE=moat-env.squashfs
     else
         echo "No requirements file found (requirements.txt or environment.yml)"
         return 1
@@ -166,7 +196,6 @@ function vea() {
     echo "Installing ${INSTALL_OPTS[@]} with mode $install_type"
     echo "Binds: ${BINDS[@]}"
 
-    BIN_DIRS+=("$PATH_IN"/bin/)
     # Make the environment directories
     mkdir -p "$BASE"/venv
     mkdir -p "$BASE"/bin
@@ -209,8 +238,8 @@ function vea() {
     echo apptainer exec \
          --contain --env LANG=C --env LC_ALL=C \
          --bind '"$PWD:$PWD"' \
-	 $BIND_ENV \
-	 '"${BINDS[@]}"' \
+         $BIND_ENV \
+         '"${BINDS[@]}"' \
          --cwd '"$PWD"' '--workdir="$BASE"/tmp' \
          "$IMG" "$run_command" \
          >> "$BASE/exec"
