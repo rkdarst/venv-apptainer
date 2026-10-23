@@ -143,6 +143,7 @@ which runs `uv sync`.  To install from `requirements.txt`, use `vea
 --uv pip install -r requirements.txt` which runs `uv pip install -r
 ...` inside.
 
+TODO: cache Python downloads, https://github.com/astral-sh/uv/issues/16289
 
 ### moat
 
@@ -151,10 +152,11 @@ and constricts AI agents.  venv-apptainer does not replace that, but
 it can install and set up its Apptainer images.  Use moat for full
 configuration, use venv-apptainer only for the simple base case.  I
 have designed this only for VScodium/VScode use, for one project at a
-time.  It mounts a fake home dir at `~/.moat/home/` - same for all
-projects.
+time.
 
-This is still very alpha.
+This is still very alpha.  Warning: it mounts a fake home dir at
+`~/.moat/home/` - same for all projects, so does not strictly isolate
+between projects.  Only run one codium/code instance can run at once.
 
 **Initial setup**: `vea --moat` from the project directory.  There are
 no other configuration options (compared to moat that lets you set up
