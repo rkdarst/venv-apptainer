@@ -32,6 +32,7 @@ function vea() {
     local -a INSTALL_OPTS            # Holds the requested command line args for installation
     local -a BIN_DIRS                # Add programs from these paths to ./venva/bin/
     local -a BIN_EXECS               # Add these programs to ./venva/bin/
+    local install_type               # what type of env do we make?
 
     # Parse command line arguments.
     while [[ $# -gt 0 ]]; do
@@ -74,11 +75,11 @@ function vea() {
             --bind-ro)          BINDS+=(--bind="$2":"$2":ro) ; shift 2 ;;
             -e)                 BINDS+=(--bind="$2":"$2":ro) ;
                                 INSTALL_OPTS+=(-e "$2") ;      shift 2 ;;
-            --pip)        local install_type=pip ;             shift   ;;
-            --conda)      local install_type=conda ;           shift   ;;
-            --uv)         local install_type=uv ;              shift   ;;
-            --moat)       local install_type=moat ;            shift   ;;
-            *)            local INSTALL_OPTS+=("$@") ;         break   ;;
+            --pip)        install_type=pip ;                   shift   ;;
+            --conda)      install_type=conda ;                 shift   ;;
+            --uv)         install_type=uv ;                    shift   ;;
+            --moat)       install_type=moat ;                  shift   ;;
+            *)            INSTALL_OPTS+=("$@") ;               break   ;;
         esac
     done
 
@@ -96,33 +97,33 @@ function vea() {
     # pylock.toml, requirements.txt in that order.
     if   [ "$install_type" = pip ] ; then
         if -z "$INSTALL_OPTS" ; then
-            test -e requirements.txt && local INSTALL_OPTS+=(-r requirements.txt)
-            test -e pylock.toml && local INSTALL_OPTS+=(-r pylock.toml)
+            test -e requirements.txt && INSTALL_OPTS+=(-r requirements.txt)
+            test -e pylock.toml && INSTALL_OPTS+=(-r pylock.toml)
         fi
     elif [ "$install_type" = conda ] ; then
-        test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(-f environment.yml)
+        test -z "$INSTALL_OPTS" && INSTALL_OPTS+=(-f environment.yml)
     elif [ "$install_type" = uv ] ; then
-        test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(sync)
+        test -z "$INSTALL_OPTS" && INSTALL_OPTS+=(sync)
     elif [ "$install_type" = moat ] ; then
-        test -z "$INSTALL_OPTS" && local INSTALL_OPTS+=(n/a)
+        test -z "$INSTALL_OPTS" && INSTALL_OPTS+=(n/a)
     # One argument - requirements file
     elif [ "${#INSTALL_OPTS[@]}" -eq 1 ] ; then
         case "${INSTALL_OPTS[0]}" in
             *.txt|*.toml)
-                local install_type=pip
-                local INSTALL_OPTS+=(-r "${INSTALL_OPTS[@]}")
+                install_type=pip
+                INSTALL_OPTS+=(-r "${INSTALL_OPTS[@]}")
             ;;
             *.yml)
-                local install_type=conda
-                local INSTALL_OPTS+=(-f "${INSTALL_OPTS[@]}")
+                install_type=conda
+                INSTALL_OPTS+=(-f "${INSTALL_OPTS[@]}")
             ;;
         esac
     # Multi-arg options: install exactly with the args given
     elif [ -n "$INSTALL_OPTS" ] ; then
-        local install_type=pip
-    elif [ -e environment.yml ]  ; then local install_type=conda ; local INSTALL_OPTS+=(-f environment.yml)
-    elif [ -e pylock.toml ]      ; then local install_type=pip   ; local INSTALL_OPTS+=(-r pylock.toml)
-    elif [ -e requirements.txt ] ; then local install_type=pip   ; local INSTALL_OPTS+=(-r requirements.txt)
+        install_type=pip
+    elif [ -e environment.yml ]  ; then install_type=conda ; INSTALL_OPTS+=(-f environment.yml)
+    elif [ -e pylock.toml ]      ; then install_type=pip   ; INSTALL_OPTS+=(-r pylock.toml)
+    elif [ -e requirements.txt ] ; then install_type=pip   ; INSTALL_OPTS+=(-r requirements.txt)
     fi
     # Warn if nothing was detected
     if [ -z "$INSTALL_OPTS" ] ; then
@@ -131,7 +132,7 @@ function vea() {
     fi
 
     # Handle Pip vs Conda specialities.
-    local install_type install_command run_command
+    local install_command run_command
     local IMG
     if [ "$install_type" = pip ] ; then
 	# Get the image
