@@ -2,7 +2,7 @@
 
 # Basic image definitions (image source and local file name)
 declare -g -A VENVA_IMAGES
-VENVA_IMAGES[pip]="docker://python:3.13.14-trixie"
+VENVA_IMAGES[pip]="docker://python:3.14-trixie"
 VENVA_IMAGES[pip_file]="python-3.14.sif"
 VENVA_IMAGES[conda]="docker://condaforge/miniforge3:26.3.2-3"
 VENVA_IMAGES[conda_file]="miniforge-26.sif"
