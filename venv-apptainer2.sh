@@ -4,7 +4,7 @@
 declare -g -A VENVA_IMAGES
 VENVA_IMAGES[pip]="docker://python:3.14-trixie"
 VENVA_IMAGES[pip_file]="python-3.14.sif"
-VENVA_IMAGES[conda]="docker://condaforge/miniforge3:26.3.2-3"
+VENVA_IMAGES[conda]="docker://condaforge/miniforge3:26.9.4-0"
 VENVA_IMAGES[conda_file]="miniforge-26.sif"
 VENVA_IMAGES[uv]="docker://astral/uv:0.13-debian-slim"
 VENVA_IMAGES[uv_file]="uv-0.13.sif"
