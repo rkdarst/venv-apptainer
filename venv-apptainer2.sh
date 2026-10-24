@@ -135,14 +135,12 @@ function vea() {
 
     # Handle Pip vs Conda specialities.
     local install_command run_command
-    local IMG
+    local IMG IMG_SOURCE
     if [ "$install_type" = pip ] ; then
         # Get the image
         if test -z "$IMG" ; then
-           if test ! -e "${VENVA_IMG_DIR}/${VENVA_IMAGES[pip_file]}" ; then
-               apptainer pull "${VENVA_IMG_DIR}/${VENVA_IMAGES[pip_file]}" "${VENVA_IMAGES[pip]}"
-           fi
            IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[pip_file]}"
+	   IMG_SOURCE="${VENVA_IMAGES[pip]}"
         fi
         install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install ${INSTALL_OPTS[@]}"
         run_command='bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" [in-container] "$@"'
@@ -152,10 +150,8 @@ function vea() {
         SQUASHFS_FILE=venv.squashfs
     elif [ "$install_type" = conda ] ; then
         if test -z "$IMG" ; then
-           if test ! -e "${VENVA_IMG_DIR}/${VENVA_IMAGES[conda_file]}" ; then
-               apptainer pull "${VENVA_IMG_DIR}/${VENVA_IMAGES[conda_file]}" "${VENVA_IMAGES[conda]}"
-           fi
            IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[conda_file]}"
+	   IMG_SOURCE="${VENVA_IMAGES[conda]}"
         fi
         install_command="conda env create --yes -p /venv-apptainer ${INSTALL_OPTS[@]}"
         run_command='bash -c "source activate /venv-apptainer ; \${@:-bash}" [in-container] "$@"'
@@ -166,10 +162,8 @@ function vea() {
         SQUASHFS_FILE=conda-env.squashfs
     elif [ "$install_type" = uv ] ; then
         if test -z "$IMG" ; then
-           if test ! -e "${VENVA_IMG_DIR}/${VENVA_IMAGES[uv_file]}" ; then
-               apptainer pull "${VENVA_IMG_DIR}/${VENVA_IMAGES[uv_file]}" "${VENVA_IMAGES[uv]}"
-           fi
            IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[uv_file]}"
+	   IMG_SOURCE="${VENVA_IMAGES[uv]}"
         fi
         install_command="uv venv .venv ; uv ${INSTALL_OPTS[@]}"
         run_command='bash -c "source .venv/bin/activate ; \${@:-bash}" [in-container] "$@"'
@@ -181,10 +175,8 @@ function vea() {
         SQUASHFS_FILE=uv-env.squashfs
     elif [ "$install_type" = moat ] ; then
         if test -z "$IMG" ; then
-           if test ! -e "${VENVA_IMG_DIR}/${VENVA_IMAGES[moat_file]}" ; then
-               apptainer pull "${VENVA_IMG_DIR}/${VENVA_IMAGES[moat_file]}" "${VENVA_IMAGES[moat]}"
-           fi
            IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[moat_file]}"
+	   IMG_SOURCE="${VENVA_IMAGES[moat]}"
         fi
         install_command=true
         #run_command='bash -c "true ; \${@:-bash}" [in-container] "$@"'
@@ -205,13 +197,19 @@ function vea() {
         return 1
     fi
 
-    # If force mode: delete the environment
+    # Pull the image if not yet pulled.  It is set above.
+    if test ! -e "$IMG" ; then
+        apptainer pull "${IMG}" "${IMG_SOURCE}"
+    fi
+
+    # If force mode: delete the existing environment's squashfs.  This
+    # may not work under other circumstances.
     if test -n "$VENVA_FORCE" -a -e "$BASE"/"$SQUASHFS_FILE" ; then
         echo "Deleting $BASE/$SQUASHFS_FILE"
         rm -v "$BASE"/"$SQUASHFS_FILE"
     fi
 
-
+    # Print debugging info
     echo "Installing ${INSTALL_OPTS[@]} with mode $install_type"
     echo "Binds: ${BINDS[@]}"
 
