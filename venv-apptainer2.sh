@@ -1,19 +1,25 @@
-# Store images in ~/sys/ if it exists.  Otherwise in the location of
-# this script.  If these variables are already defined, do nothing.
-# There is no built-in way to override images for only one venv (yet).
-if [ -d ~/sys/ ] ; then
-    : "${VENV_APPTAINER_IMAGE:=$HOME/sys/python-3.14.sif}"
-    : "${CONDA_APPTAINER_IMAGE:=$HOME/sys/miniforge-26.sif}"
-    : "${UV_APPTAINER_IMAGE:=$HOME/sys/uv-0.13.sif}"
-    : "${MOAT_APPTAINER_IMAGE:=$HOME/sys/moat-0.3.2.sif}"
+# This file must be sourced and then used via the `vea` shell alias.
+
+# Basic image definitions (image source and local file name)
+declare -g -A VENVA_IMAGES
+VENVA_IMAGES[pip]="docker://python:3.13.14-trixie"
+VENVA_IMAGES[pip_file]="python-3.14.sif"
+VENVA_IMAGES[conda]="docker://condaforge/miniforge3:26.3.2-3"
+VENVA_IMAGES[conda_file]="miniforge-26.sif"
+VENVA_IMAGES[uv]="docker://astral/uv:0.13-debian-slim"
+VENVA_IMAGES[uv_file]="uv-0.13.sif"
+VENVA_IMAGES[moat]="docker://ghcr.io/aaltorse/moat:v0.3.2"
+VENVA_IMAGES[moat_file]="moat-0.3.2.sif"
+
+# Accept an existing value of VENVA_IMG_DIR if it exists.  Otherwise,
+# store images in ~/sys/ if it exists.  Otherwise in the location of
+# this script.
+if [ -n "$VENVA_IMG_DIR" ] ; then
+    true
+elif [ -d ~/sys/ ] ; then
+    VENVA_IMG_DIR="$HOME"/sys/
 else
-    # The crazy construct ${BASH_SOURCE:-${(%):-%x}} (also seen below)
-    # is a way to emulate $BASH_SOURCE on zsh (and this form works for
-    # both bash and zsh)
-    : "${VENV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/python-3.14.sif)\"}"
-    : "${CONDA_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/miniforge-26.sif)\"}"
-    : "${UV_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/uv-0.13.sif)\"}"
-    : "${MOAT_APPTAINER_IMAGE:=$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/moat-0.3.2.sif)\"}"
+    VENVA_IMG_DIR="$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/)\"}"
 fi
 
 # Shell function.  This is made to be sourced in .bashrc to always be
@@ -85,12 +91,6 @@ function vea() {
         return
     fi
 
-    # If force mode: delete the environment
-    if test -n "$VENVA_FORCE" -a -e "$BASE"/venv.squashfs ; then
-        echo "Deleting $BASE/venv.squashfs"
-        rm -v "$BASE"/venv.squashfs
-    fi
-
     # Detect what our mode should be (pip, conda, which requirements
     # file).  Priority to --pip or --conda, then environment.yml,
     # pylock.toml, requirements.txt in that order.
@@ -134,33 +134,40 @@ function vea() {
     local install_type install_command run_command
     local IMG
     if [ "$install_type" = pip ] ; then
-        if ! test -e "$VENV_APPTAINER_IMAGE" ; then
-            apptainer pull "$VENV_APPTAINER_IMAGE" docker://python:3.13.14-trixie
-        fi
+	# Get the image
+	if test -z "$IMG" ; then
+	   if test ! -e "${VENVA_IMG_DIR}/${VENVA_IMAGES[pip_file]}" ; then
+               apptainer pull "${VENVA_IMG_DIR}/${VENVA_IMAGES[pip_file]}" "${VENVA_IMAGES[pip]}"
+	   fi
+           IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[pip_file]}"
+	fi
         install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install ${INSTALL_OPTS[@]}"
         run_command='bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" [in-container] "$@"'
-        IMG="${IMG:-$VENV_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/pip-apptainer
         BINDS+=("--bind=$HOME/.cache/pip-apptainer/:$HOME/.cache/pip")
         BIN_DIRS+=("$PATH_IN"/bin/)
         SQUASHFS_FILE=venv.squashfs
     elif [ "$install_type" = conda ] ; then
-        if ! test -e "$CONDA_APPTAINER_IMAGE" ; then
-            apptainer pull "$CONDA_APPTAINER_IMAGE" docker://condaforge/miniforge3:26.3.2-3
-        fi
+	if test -z "$IMG" ; then
+	   if test ! -e "${VENVA_IMG_DIR}/${VENVA_IMAGES[conda_file]}" ; then
+               apptainer pull "${VENVA_IMG_DIR}/${VENVA_IMAGES[conda_file]}" "${VENVA_IMAGES[conda]}"
+	   fi
+           IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[conda_file]}"
+	fi
         install_command="conda env create --yes -p /venv-apptainer ${INSTALL_OPTS[@]}"
         run_command='bash -c "source activate /venv-apptainer ; \${@:-bash}" [in-container] "$@"'
-        IMG="${IMG:-$CONDA_APPTAINER_IMAGE}"
         mkdir -p "$HOME"/.cache/conda-apptainer "$HOME"/.conda-apptainer/
         BINDS+=("--bind=$HOME/.cache/conda-apptainer/:$HOME/.cache/conda/")
         BINDS+=("--bind=$HOME/.conda-apptainer/:$HOME/.conda/")
         BIN_DIRS+=("$PATH_IN"/bin/)
         SQUASHFS_FILE=conda-env.squashfs
     elif [ "$install_type" = uv ] ; then
-        if ! test -e "$UV_APPTAINER_IMAGE" ; then
-            apptainer pull "$UV_APPTAINER_IMAGE" docker://astral/uv:0.13-debian-slim
-        fi
-        IMG="${IMG:-$UV_APPTAINER_IMAGE}"
+	if test -z "$IMG" ; then
+	   if test ! -e "${VENVA_IMG_DIR}/${VENVA_IMAGES[uv_file]}" ; then
+               apptainer pull "${VENVA_IMG_DIR}/${VENVA_IMAGES[uv_file]}" "${VENVA_IMAGES[uv]}"
+	   fi
+           IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[uv_file]}"
+	fi
         install_command="uv venv .venv ; uv ${INSTALL_OPTS[@]}"
         run_command='bash -c "source .venv/bin/activate ; \${@:-bash}" [in-container] "$@"'
         PATH_IN="$PWD"/.venv
@@ -170,10 +177,12 @@ function vea() {
         BIN_DIRS+=('/usr/local/bin/')
         SQUASHFS_FILE=uv-env.squashfs
     elif [ "$install_type" = moat ] ; then
-        if ! test -e "$MOAT_APPTAINER_IMAGE" ; then
-            apptainer pull "$MOAT_APPTAINER_IMAGE" docker://ghcr.io/aaltorse/moat:v0.3.2
-        fi
-        IMG="${IMG:-$MOAT_APPTAINER_IMAGE}"
+	if test -z "$IMG" ; then
+	   if test ! -e "${VENVA_IMG_DIR}/${VENVA_IMAGES[moat_file]}" ; then
+               apptainer pull "${VENVA_IMG_DIR}/${VENVA_IMAGES[moat_file]}" "${VENVA_IMAGES[moat]}"
+	   fi
+           IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[moat_file]}"
+	fi
         install_command=true
         #run_command='bash -c "true ; \${@:-bash}" [in-container] "$@"'
         run_command='bash -c "export PATH=\$PATH:/opt/nvm/versions/node/v24.22.0/bin/ ; \${@:-bash}" [in-container] "$@"'
@@ -192,6 +201,13 @@ function vea() {
         echo "No requirements file found (requirements.txt or environment.yml)"
         return 1
     fi
+
+    # If force mode: delete the environment
+    if test -n "$VENVA_FORCE" -a -e "$BASE"/"$SQUASHFS_FILE" ; then
+        echo "Deleting $BASE/$SQUASHFS_FILE"
+        rm -v "$BASE"/"$SQUASHFS_FILE"
+    fi
+
 
     echo "Installing ${INSTALL_OPTS[@]} with mode $install_type"
     echo "Binds: ${BINDS[@]}"
@@ -232,16 +248,19 @@ function vea() {
     # we need to run within the container.  This wrapper also
     # activates the environments within the container, then runs
     # either a shell or the command given on the command line.
-    echo '#!/bin/bash' > "$BASE"/exec   # bash not ideal but needs better than sh
-    echo 'BASE="$(dirname "$0")"' >> "$BASE"/exec
+    # hard-coding bash not ideal but needs better than sh.
+    echo '#!/bin/bash'                            >  "$BASE"/exec
+    echo 'BASE="$(dirname "$0")"'                 >> "$BASE"/exec
     echo "BINDS=($(printf '%q\n' "${BINDS[@]}"))" >> "$BASE"/exec
-    echo apptainer exec \
-         --contain --env LANG=C --env LC_ALL=C \
-         --bind '"$PWD:$PWD"' \
-         $BIND_ENV \
-         '"${BINDS[@]}"' \
-         --cwd '"$PWD"' '--workdir="$BASE"/tmp' \
-         "$IMG" "$run_command" \
+    echo "IMG=\"$IMG\""                           >> "$BASE"/exec
+    echo apptainer exec                           $'\\\n   ' \
+         --contain --env LANG=C --env LC_ALL=C    $'\\\n   ' \
+         --bind '"$PWD:$PWD"'                     $'\\\n   ' \
+         $BIND_ENV                                $'\\\n   ' \
+         '"${BINDS[@]}"'                          $'\\\n   ' \
+         --cwd '"$PWD"' '--workdir="$BASE"/tmp'   $'\\\n   ' \
+         '"$IMG"'                                 $'\\\n   ' \
+         "$run_command"                                      \
          >> "$BASE/exec"
     chmod a+x "$BASE"/exec
 
