@@ -33,6 +33,8 @@ function vea() {
     local -a BIN_DIRS                # Add programs from these paths to ./venva/bin/
     local -a BIN_EXECS               # Add these programs to ./venva/bin/
     local install_type               # what type of env do we make?
+    local -a ORIG_ARGS
+    ORIG_ARGS=("$@")
 
     # Parse command line arguments.
     while [[ $# -gt 0 ]]; do
@@ -251,9 +253,16 @@ function vea() {
     # either a shell or the command given on the command line.
     # hard-coding bash not ideal but needs better than sh.
     echo '#!/bin/bash'                            >  "$BASE"/exec
+    # $FUNCNAME doesn't work in zsh, but OK.
+    echo '# Original arguments:'                  >> "$BASE"/exec
+    echo '#  ' "$FUNCNAME" "${ORIG_ARGS[@]}"      >> "$BASE"/exec
+    echo '# Computed install args:'               >> "$BASE"/exec
+    echo '#  ' "${INSTALL_OPTS[@]}"               >> "$BASE"/exec
+    echo                                          >> "$BASE"/exec
     echo 'BASE="$(dirname "$0")"'                 >> "$BASE"/exec
     echo "BINDS=($(printf '%q\n' "${BINDS[@]}"))" >> "$BASE"/exec
     echo "IMG=\"$IMG\""                           >> "$BASE"/exec
+    echo                                          >> "$BASE"/exec
     echo apptainer exec                           $'\\\n   ' \
          --contain --env LANG=C --env LC_ALL=C    $'\\\n   ' \
          --bind '"$PWD:$PWD"'                     $'\\\n   ' \
