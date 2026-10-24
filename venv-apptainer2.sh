@@ -19,7 +19,7 @@ if [ -n "$VENVA_IMG_DIR" ] ; then
 elif [ -d ~/sys/ ] ; then
     VENVA_IMG_DIR="$HOME"/sys/
 else
-    VENVA_IMG_DIR="$(realpath \"$(dirname \\\"${BASH_SOURCE:-${(%):-%x}}\\\")/)\"}"
+    VENVA_IMG_DIR="$(realpath "$(dirname "${BASH_SOURCE:-${(%):-%x}}")")/"
 fi
 
 # Shell function.  This is made to be sourced in .bashrc to always be
@@ -43,7 +43,8 @@ function vea() {
                 echo "usage: vea [INSTALL_OPTS [...]]"
                 echo
                 echo "INSTALL_OPTS   If one argument: use this requirements file"
-                echo "               (default: detect environment.yml, pylock.toml,"
+                echo "               (default: detect environment.yml and use conda, "
+                echo "               then pip with pylock.toml or"
                 echo "               requirements.txt in that order)"
                 echo "               Multiple arguments: pass these arguments to pip/"
                 echo "               conda/etc.  Default pip, use --conda for conda."
@@ -70,7 +71,9 @@ function vea() {
                 return
                 ;;
             --verbose)    trap 'set +x' RETURN ; set -x ;      shift   ;;
-            --img)        local IMG="$2";                      shift 2 ;;
+            --img)        local IMG="$2";
+                          if [ ! -e "$IMG" ] ; then echo "not present: $IMG" ; return 1 ; fi ;
+                                                               shift 2 ;;
             -f|--force)   local VENVA_FORCE=true ;             shift   ;;
             --no-squash)  local NO_SQUASH=true ;               shift   ;;
             --bind)             BINDS+=(--bind="$2") ;         shift 2 ;;
@@ -98,9 +101,12 @@ function vea() {
     # file).  Priority to --pip or --conda, then environment.yml,
     # pylock.toml, requirements.txt in that order.
     if   [ "$install_type" = pip ] ; then
-        if -z "$INSTALL_OPTS" ; then
-            test -e requirements.txt && INSTALL_OPTS+=(-r requirements.txt)
-            test -e pylock.toml && INSTALL_OPTS+=(-r pylock.toml)
+        if [ "${#INSTALL_OPTS[@]}" -eq 0 ] ; then
+            if test -e requirements.txt ; then
+                INSTALL_OPTS+=(-r requirements.txt)
+            elif test -e pylock.toml ; then
+                 INSTALL_OPTS+=(-r pylock.toml)
+            fi
         fi
     elif [ "$install_type" = conda ] ; then
         test -z "$INSTALL_OPTS" && INSTALL_OPTS+=(-f environment.yml)
@@ -110,18 +116,18 @@ function vea() {
         test -z "$INSTALL_OPTS" && INSTALL_OPTS+=(n/a)
     # One argument - requirements file
     elif [ "${#INSTALL_OPTS[@]}" -eq 1 ] ; then
-        case "${INSTALL_OPTS[0]}" in
+        case "${INSTALL_OPTS[*]:0:1}" in
             *.txt|*.toml)
                 install_type=pip
-                INSTALL_OPTS+=(-r "${INSTALL_OPTS[@]}")
+                INSTALL_OPTS=(-r "${INSTALL_OPTS[@]}")
             ;;
             *.yml)
                 install_type=conda
-                INSTALL_OPTS+=(-f "${INSTALL_OPTS[@]}")
+                INSTALL_OPTS=(-f "${INSTALL_OPTS[@]}")
             ;;
         esac
     # Multi-arg options: install exactly with the args given
-    elif [ -n "$INSTALL_OPTS" ] ; then
+    elif [ "${#INSTALL_OPTS[@]}" -ne 0 ] ; then
         install_type=pip
     elif [ -e environment.yml ]  ; then install_type=conda ; INSTALL_OPTS+=(-f environment.yml)
     elif [ -e pylock.toml ]      ; then install_type=pip   ; INSTALL_OPTS+=(-r pylock.toml)
@@ -140,9 +146,9 @@ function vea() {
         # Get the image
         if test -z "$IMG" ; then
            IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[pip_file]}"
-	   IMG_SOURCE="${VENVA_IMAGES[pip]}"
+           IMG_SOURCE="${VENVA_IMAGES[pip]}"
         fi
-        install_command="python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install ${INSTALL_OPTS[@]}"
+        install_command='python3 -m venv /venv-apptainer ; source /venv-apptainer/bin/activate ; pip install "$@"'
         run_command='bash -c "source /venv-apptainer/bin/activate ; \${@:-bash}" [in-container] "$@"'
         mkdir -p "$HOME"/.cache/pip-apptainer
         BINDS+=("--bind=$HOME/.cache/pip-apptainer/:$HOME/.cache/pip")
@@ -151,9 +157,9 @@ function vea() {
     elif [ "$install_type" = conda ] ; then
         if test -z "$IMG" ; then
            IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[conda_file]}"
-	   IMG_SOURCE="${VENVA_IMAGES[conda]}"
+           IMG_SOURCE="${VENVA_IMAGES[conda]}"
         fi
-        install_command="conda env create --yes -p /venv-apptainer ${INSTALL_OPTS[@]}"
+        install_command='conda env create --yes -p /venv-apptainer "$@"'
         run_command='bash -c "source activate /venv-apptainer ; \${@:-bash}" [in-container] "$@"'
         mkdir -p "$HOME"/.cache/conda-apptainer "$HOME"/.conda-apptainer/
         BINDS+=("--bind=$HOME/.cache/conda-apptainer/:$HOME/.cache/conda/")
@@ -163,20 +169,22 @@ function vea() {
     elif [ "$install_type" = uv ] ; then
         if test -z "$IMG" ; then
            IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[uv_file]}"
-	   IMG_SOURCE="${VENVA_IMAGES[uv]}"
+           IMG_SOURCE="${VENVA_IMAGES[uv]}"
         fi
-        install_command="uv venv .venv ; uv ${INSTALL_OPTS[@]}"
-        run_command='bash -c "source .venv/bin/activate ; \${@:-bash}" [in-container] "$@"'
-        PATH_IN="$PWD"/.venv
+        install_command='export UV_PROJECT_ENVIRONMENT=/uv-apptainer/ ; uv venv /uv-apptainer/ ; source /uv-apptainer/bin/activate ; uv "$@"'
+        run_command='bash -c "export UV_PROJECT_ENVIRONMENT=/uv-apptainer/ ; source /uv-apptainer/bin/activate ; \${@:-bash}" [in-container] "$@"'
+        PATH_IN=/uv-apptainer/
         mkdir -p "$HOME"/.cache/uv-apptainer
+        mkdir -p "$HOME"/.local/share/uv-apptainer
         BINDS+=("--bind=$HOME/.cache/uv-apptainer:$HOME/.cache/uv")
+        BINDS+=("--bind=$HOME/.local/share/uv-apptainer:$HOME/.local/share/uv")
         BIN_DIRS+=("$PATH_IN"/bin/)
         BIN_DIRS+=('/usr/local/bin/')
         SQUASHFS_FILE=uv-env.squashfs
     elif [ "$install_type" = moat ] ; then
         if test -z "$IMG" ; then
            IMG="${VENVA_IMG_DIR}/${VENVA_IMAGES[moat_file]}"
-	   IMG_SOURCE="${VENVA_IMAGES[moat]}"
+           IMG_SOURCE="${VENVA_IMAGES[moat]}"
         fi
         install_command=true
         #run_command='bash -c "true ; \${@:-bash}" [in-container] "$@"'
@@ -200,6 +208,11 @@ function vea() {
     # Pull the image if not yet pulled.  It is set above.
     if test ! -e "$IMG" ; then
         apptainer pull "${IMG}" "${IMG_SOURCE}"
+        local ret=$?
+        if [ $ret -ne 0 ] ; then
+            echo "Failed pulling ${IMG_SOURCE} to ${IMG}"
+            return 1
+        fi
     fi
 
     # If force mode: delete the existing environment's squashfs.  This
@@ -227,7 +240,7 @@ function vea() {
               --workdir="$BASE"/tmp \
               --contain --env LANG=C --env LC_ALL=C \
               "$IMG" \
-              bash -c "$install_command"
+              bash -c "$install_command" [install-container] "${INSTALL_OPTS[@]}"
     if [ $? -ne 0 ] ; then
         echo "Apptainer command failed"
         return 1
@@ -264,7 +277,7 @@ function vea() {
     echo apptainer exec                           $'\\\n   ' \
          --contain --env LANG=C --env LC_ALL=C    $'\\\n   ' \
          --bind '"$PWD:$PWD"'                     $'\\\n   ' \
-         $BIND_ENV                                $'\\\n   ' \
+         "$BIND_ENV"                              $'\\\n   ' \
          '"${BINDS[@]}"'                          $'\\\n   ' \
          --cwd '"$PWD"' '--workdir="$BASE"/tmp'   $'\\\n   ' \
          '"$IMG"'                                 $'\\\n   ' \
@@ -286,8 +299,8 @@ function vea() {
     # Create the activate script, which adds the venv to the path.
     # The ${BASH_SOURCE:-${(%):-%x}} construct allows something like
     # BASH_SOURCE on zsh, too.
-    echo 'PATH="$(realpath $(dirname "${BASH_SOURCE:-${(%):-%x}}"))"/bin/:"$PATH"' > "$BASE"/activate
-    echo 'VIRTUAL_ENV="$(basename "$(dirname ${BASH_SOURCE:-${(%):-%x}})")"' >> "$BASE"/activate
+    echo 'PATH="$(realpath "$(dirname "${BASH_SOURCE:-${(%):-%x}}")")"/bin/:"$PATH"' > "$BASE"/activate
+    echo 'export VIRTUAL_ENV="$(basename "$(dirname ${BASH_SOURCE:-${(%):-%x}})")"' >> "$BASE"/activate
 
     # Activate the environment
     source "$BASE"/activate
