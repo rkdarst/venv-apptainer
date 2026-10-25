@@ -6,8 +6,8 @@ environments in apptainer to protect against supply chain attacks.
 manually build containers when needed, but this makes it automatic.
 Basically:
 
-* You have a project directory with `requirements.txt` or
-  `environment.yml`.
+* You have a project directory with `requirements.txt` `pylock.toml`,
+  or `environment.yml`.
 * You run the shell function `vea` (sourced in .bashrc)
 * Environment is built in a container and wrapper scripts are added to
   `$PATH` (so that you can transparently run these commands).  If it
@@ -23,9 +23,10 @@ standard `python`).
 `vea` builds or activates the environment.  Basically, change to the
 dir and run `vea`, and you'll get set up with a old or new setup.
 
-There is preliminary support for Conda, which is activated when a
-environment.yml file is detected.  `zsh` should also be supported but
-it needs testing.
+There is support for `conda`, `uv`, `moat`, and various other
+arguments which provide more control than the streamlined method above
+(some of these are less well tested).  `zsh` should also be supported
+but it needs testing.
 
 
 ## Status and development
@@ -136,27 +137,31 @@ When installing,
 
 ### uv
 
-Preliminary support.  The initial install with `vea` must be run with
-`--uv [uv_arguments_without_initial_uv]`, which first runs `uv venv
-.venv` and then whatever else you specify.  Example `vea --uv sync`
-which runs `uv sync`.  To install from `requirements.txt`, use `vea
---uv pip install -r requirements.txt` which runs `uv pip install -r
-...` inside.
+Preliminary support, not well tested, please report problems.
+
+The initial install with `vea` must be run with `--uv
+[uv_arguments_without_initial_uv]`, which first runs `uv venv .venv`
+and then whatever else you specify.  Example `vea --uv sync` which
+runs `uv sync`.  To install from `requirements.txt`, use `vea --uv pip
+install -r requirements.txt` which runs `uv pip install -r ...`
+inside.
 
 TODO: cache Python downloads, https://github.com/astral-sh/uv/issues/16289
 
 ### moat
 
+This is still alpha but in use.
+
 [moat](https://github.com/AaltoRSE/moat) is a tool that containerizes
 and constricts AI agents.  venv-apptainer does not replace that, but
-it can install and set up its Apptainer images.  Use moat for full
-configuration, use venv-apptainer only for the simple base case.  I
-have designed this only for VScodium/VScode use, for one project at a
-time.
+it can install and set up its Apptainer images.  Use moat directly if
+you need full configuration, use venv-apptainer only for the simple
+base case.  I have designed this only for VScodium/VScode use, for one
+project at a time.
 
-This is still very alpha.  Warning: it mounts a fake home dir at
-`~/.moat/home/` - same for all projects, so does not strictly isolate
-between projects.  Only run one codium/code instance can run at once.
+Warning: it mounts a fake home dir at `~/.moat/home/` - same for all
+projects, so does not strictly isolate between projects.  Only one
+codium/code instance can run at once.
 
 **Initial setup**: `vea --moat` from the project directory.  There are
 no other configuration options (compared to moat that lets you set up
@@ -188,7 +193,20 @@ your $PATH).  Look at `./venva/bin/` to see what is available.
 ## HOW-TOs
 
 **You want to install a project from a different directory with `pip
-install -e` for development purposes**
+install -e` for development purposes.**
+
+The `-e DIR` option (if parsed by uv) will add `-e DIR` to the
+installation arguments and also add a read-only bind-mount `DIR` to
+the image.  You may need to remove this package from the
+requirements.txt to avoid conflicts.
+
+```console
+$ vea -e ../path-to-other-project/ -r requirements.txt
+```
+
+
+**You want to install a project from a different directory with `pip
+install -e` for development purposes.**
 
 ```console
 ## First make an venv-a in the current dir
@@ -204,11 +222,11 @@ $ pip install -e ~/git/sphinx-misc-rkdarst/
 $ emacs ~/git/sphinx-misc-rkdarst/module/__init__.py
 ```
 
-You can also do this all in one command:
+You can also do the above all in one command:
 ```console
 ## Combines the above with a full command line.  This may give
 ## conflicts if the local package is also in requirements.txt
-$ vea --bind-ro $PWD/git/sphinx-misc-rkdarst/ --pip -r requirements.txt -e ~/git/sphinx-misc-rkdarst/
+$ vea --bind-ro $HOME/git/sphinx-misc-rkdarst/ --pip -r requirements.txt -e ~/git/sphinx-misc-rkdarst/
 ```
 
 
@@ -229,6 +247,9 @@ $ vea --bind-ro $PWD/git/sphinx-misc-rkdarst/ --pip -r requirements.txt -e ~/git
   permanently configure).
 - There is no way to deactivate an environment (it's permanently added
   to `$PATH`).
+- There are hard-coded image versions at the top of the file, which
+  would need to be maintained as versions increase.
+
 
 
 ## Other notes
@@ -238,6 +259,8 @@ $ vea --bind-ro $PWD/git/sphinx-misc-rkdarst/ --pip -r requirements.txt -e ~/git
   personal workflow's exclusions in `~/.gitignore` (such as
   `/venva/`), rather than copy it to every repository you work on.
 
+
+
 ## `venv-apptainer1.sh`
 
 This was an older version of this project (it minimally worked, but
@@ -246,6 +269,7 @@ container for every environment, with only `$PWD` mounted inside of
 it.
 
 Don't use it as it is, but if you want me to fix it up, let me know.
+
 
 
 ## See also
