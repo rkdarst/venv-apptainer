@@ -40,7 +40,10 @@ function vea() {
     while [[ $# -gt 0 ]]; do
         case $1 in
             -h|--help)
-                echo "usage: vea [INSTALL_OPTS [...]]"
+                echo "usage: vea [OPTS] [INSTALL_ARGS [...]]"
+                echo
+                echo "NOTE: [[--OPT [VALUE]] ...] must come before [INSTALL_ARGS] and "
+                echo "--OPT and VALUE must be space, not '=', separated."
                 echo
                 echo "INSTALL_OPTS   If one argument: use this requirements file"
                 echo "               (default: detect environment.yml and use conda, "
@@ -53,6 +56,8 @@ function vea() {
                 echo "--force        Force a rebuild.  Doesn't delete old files, only"
                 echo "               deletes a possible squashfs. Otherwise, installs"
                 echo "               on top of old files.  Beware of problems."
+                echo "--base         Install at this path instead of venva."
+                echo "               Default: venva"
                 echo "--no-squash    Don't compact to a squashfs filesystem.  Allows"
                 echo "               updating/editing later"
                 echo "--pip          Install file with pip"
@@ -75,6 +80,7 @@ function vea() {
                           if [ ! -e "$IMG" ] ; then echo "not present: $IMG" ; return 1 ; fi ;
                                                                shift 2 ;;
             -f|--force)   local VENVA_FORCE=true ;             shift   ;;
+            --base)       BASE="$2" ;                          shift 2 ;;
             --no-squash)  local NO_SQUASH=true ;               shift   ;;
             --bind)             BINDS+=(--bind="$2") ;         shift 2 ;;
             --bind-ro)          BINDS+=(--bind="$2":"$2":ro) ; shift 2 ;;
@@ -223,7 +229,7 @@ function vea() {
     fi
 
     # Print debugging info
-    echo "Installing ${INSTALL_OPTS[@]} with mode $install_type"
+    echo "Installing type=$install_type to base=${BASE} with ${INSTALL_OPTS[@]}"
     echo "Binds: ${BINDS[@]}"
 
     # Make the environment directories
@@ -255,7 +261,7 @@ function vea() {
     if test -z "$NO_SQUASH" && type mksquashfs > /dev/null ; then
         mksquashfs "$BASE"/venv/ "$BASE/$SQUASHFS_FILE" -quiet
         BIND_ENV="--bind=\"\$BASE\"/${SQUASHFS_FILE}:${PATH_IN}:ro,image-src=/"
-        rm -r venva/venv/
+        rm -r "$BASE"/venv/
     fi
 
     # Install the `$BASE/exec` wrapper that includes all the options
