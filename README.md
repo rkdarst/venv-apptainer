@@ -136,6 +136,7 @@ When installing,
   fully control what is installed through the command line.  This
   could be used, for example.
 
+
 ### uv
 
 Preliminary support, not well tested, please report problems.
@@ -147,7 +148,6 @@ runs `uv sync`.  To install from `requirements.txt`, use `vea --uv pip
 install -r requirements.txt` which runs `uv pip install -r ...`
 inside.
 
-TODO: cache Python downloads, https://github.com/astral-sh/uv/issues/16289
 
 ### moat
 
@@ -186,8 +186,10 @@ your $PATH).  Look at `./venva/bin/` to see what is available.
   and not cleaned automatically
   * `~/.cache/pip-apptainer/`
   * `~/.cache/conda-apptainer/`
-  * `~/.cache/uv-apptainer/`
+  * `~/.cache/uv-apptainer/` (package cache)
+  * `~/.local/share/uv` (python download)
   * `~/.conda-apptainer/`
+  * `~/.moat/home/` (shared home dir for `moat` mode)
 
 
 
