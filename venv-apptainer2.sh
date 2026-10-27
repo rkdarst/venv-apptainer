@@ -269,26 +269,27 @@ function vea() {
     # activates the environments within the container, then runs
     # either a shell or the command given on the command line.
     # hard-coding bash not ideal but needs better than sh.
-    echo '#!/bin/bash'                            >  "$BASE"/exec
     # $FUNCNAME doesn't work in zsh, but OK.
-    echo '# Original arguments:'                  >> "$BASE"/exec
-    echo '#  ' "$FUNCNAME" "${ORIG_ARGS[@]}"      >> "$BASE"/exec
-    echo '# Computed install args:'               >> "$BASE"/exec
-    echo '#  ' "${INSTALL_OPTS[@]}"               >> "$BASE"/exec
-    echo                                          >> "$BASE"/exec
-    echo 'BASE="$(dirname "$0")"'                 >> "$BASE"/exec
-    echo "BINDS=($(printf '%q\n' "${BINDS[@]}"))" >> "$BASE"/exec
-    echo "IMG=\"$IMG\""                           >> "$BASE"/exec
-    echo                                          >> "$BASE"/exec
-    echo apptainer exec                           $'\\\n   ' \
-         --contain --env LANG=C --env LC_ALL=C    $'\\\n   ' \
-         --bind '"$PWD:$PWD"'                     $'\\\n   ' \
-         "$BIND_ENV"                              $'\\\n   ' \
-         '"${BINDS[@]}"'                          $'\\\n   ' \
-         --cwd '"$PWD"' '--workdir="$BASE"/tmp'   $'\\\n   ' \
-         '"$IMG"'                                 $'\\\n   ' \
-         "$run_command"                                      \
-         >> "$BASE/exec"
+    cat >> "$BASE"/exec <<EOF
+#!/bin/bash
+# Original arguments:
+#    $FUNCNAME ${ORIG_ARGS[@]}
+# Computed install args:
+#    ${INSTALL_OPTS[@]}
+
+BASE="\$(dirname "\$0")"
+BINDS=($(printf '%q\n' "${BINDS[@]}"))
+IMG="$IMG"
+
+apptainer exec \\
+     --contain --env LANG=C --env LC_ALL=C \\
+     --bind "\$PWD:\$PWD" \\
+     "$BIND_ENV" \\
+     \${BINDS[@]} \\
+     --cwd "\$PWD" --workdir="\$BASE"/tmp \\
+     "\$IMG" \\
+     $run_command
+EOF
     chmod a+x "$BASE"/exec
 
     # In $BASE/bin/, install wrappers for all programs within the
