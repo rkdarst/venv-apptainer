@@ -34,6 +34,7 @@ function vea() {
     local -a BIN_EXECS               # Add these programs to ./venva/bin/
     local install_type               # what type of env do we make?
     local -a ORIG_ARGS
+    local -a EXTRA_SETUP             # Extra lines for the activate script
     ORIG_ARGS=("$@")
 
     # Parse command line arguments.
@@ -205,6 +206,8 @@ function vea() {
         BIN_DIRS+=("/usr/share/code/bin/")
         BIN_DIRS+=("/usr/share/codium/bin/")
         BIN_DIRS+=("/opt/nvm/versions/node/v24.22.0/bin/")
+        EXTRA_SETUP+=("MOAT_HOME=\"$MOAT_HOME\"")
+        EXTRA_SETUP+=('mkdir -p "$MOAT_HOME"/$(realpath "$PWD" --relative-to "$HOME")')
         SQUASHFS_FILE=moat-env.squashfs
     else
         echo "No requirements file found (requirements.txt or environment.yml)"
@@ -280,6 +283,7 @@ function vea() {
 BASE="\$(dirname "\$0")"
 BINDS=($(printf '%q\n' "${BINDS[@]}"))
 IMG="$IMG"
+$(printf '%s\n'  "${EXTRA_SETUP[@]}")
 
 apptainer exec \\
      --contain --env LANG=C --env LC_ALL=C \\
