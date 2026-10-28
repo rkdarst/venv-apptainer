@@ -306,6 +306,15 @@ EOF
             chmod a+x "$BASE"/bin/"$executable"
         done
     done
+    # Shell wrapper (venva-shell)
+    echo 'BASE="$(dirname "$0")/../"' > "$BASE"/bin/venva-shell
+    echo '"$BASE"/exec' /bin/bash '"$@"' >> "$BASE"/bin/venva-shell
+    chmod a+x "$BASE"/bin/venva-shell
+    # exec wrapper (in bin, so findable by the user: venva-exec)
+    echo 'BASE="$(dirname "$0")/../"' > "$BASE"/bin/venva-exec
+    echo '"$BASE"/exec' '"$@"' >> "$BASE"/bin/venva-exec
+    chmod a+x "$BASE"/bin/venva-exec
+
 
     # Create the activate script, which adds the venv to the path.
     # The ${BASH_SOURCE:-${(%):-%x}} construct allows something like
