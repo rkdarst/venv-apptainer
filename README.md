@@ -1,24 +1,43 @@
-# Python virtual environments in Apptainer for supply-chain attack protection
+# Python virtual environments (and more) in Apptainer for supply-chain attack protection
 
-`venv-apptainer2.sh` adds a shell function `vea` builds virtual
-environments in apptainer to protect against supply chain attacks.
-(Note that containers are not perfect protection).  Anyone can
-manually build containers when needed, but this makes it automatic.
-Basically:
+`venv-apptainer2.sh` provides a shell function `vea` builds and runs
+virtual environments in apptainer to protect against supply chain
+attacks.  (Note that containers are not perfect protection).  This is
+designed to make the common workflow fast (and anyone can manually
+build containers when needed in other cases).  Basically:
 
-* You have a project directory with `requirements.txt` `pylock.toml`,
-  or `environment.yml`.
-* You run the shell function `vea` (sourced in .bashrc)
-* Environment is built in a container and wrapper scripts are added to
-  `$PATH` (so that you can transparently run these commands).  If it
-  already exists in the current dir, activate it instead.
-* Everything is stored in `./venva/`.  Delete or move the dir to
-  rebuild.
+```console
+## file exists, also other formats.
+$ ls requirements.txt
+requirements.txt
+
+## Generate the virtual environment from the above.  Automatically activated
+
+$ vea
+(venva)$
+
+## Automatic wrapper scripts on $PATH to run in the container:
+(venva)$ which python3
+.../venva/bin/python3
+
+## Start a shell to investigate what's inside
+(venva)$ ./venva/exec
+Apptainer>
+
+
+## Re-activate later (re-uses existing venv)
+$ vea
+(venva)$
+
+## Wipe it for re-creation.
+$ rm -r ./venva/
+```
+
 
 It doesn't make a container with the environment within it (that was
 an old approach in `venv-apptainer1.sh`), the environment is built and
-stored outside and bound inside (and the container image is completely
-standard `python`).
+stored in `./venva/` outside and bound inside (and the container image
+is a completely standard `python` image).
 
 `vea` builds or activates the environment.  Basically, change to the
 dir and run `vea`, and you'll get set up with a old or new setup.
@@ -136,33 +155,46 @@ When installing,
   fully control what is installed through the command line.  This
   could be used, for example.
 
+### pip
+
+`vea --pip [ARGUMENTS]` will run `pip ARGUMENTS` inside the container,
+so you can take full control of pip if you add arguments.  The default
+is `-r requirements.txt` or `-r pylock.toml`.
+
+`pip` mode is the default and `--pip` isn't usually needed.
+
+## conda
+
+`vea --conda` will automatically install an `environment.yml` file.
+Like with pip mode, you can give arguments to fully control it.
+
 
 ### uv
 
-Preliminary support, not well tested, please report problems.
+Preliminary support (I don't use uv).
 
-The initial install with `vea` must be run with `--uv
-[uv_arguments_without_initial_uv]`, which first runs `uv venv .venv`
-and then whatever else you specify.  Example `vea --uv sync` which
-runs `uv sync`.  To install from `requirements.txt`, use `vea --uv pip
-install -r requirements.txt` which runs `uv pip install -r ...`
-inside.
+The initial install with `vea` must be run with
+`--uv [ARGUMENTS]`, which first runs `uv venv
+.venv` and then `uv ARGUMENTS`.
+
+Example `vea --uv sync` which runs `uv sync`.  To install from
+`requirements.txt`, use `vea --uv pip install -r requirements.txt`.
 
 
-### moat
+### moat (preinstalled AI agents)
 
 This is still alpha but in use.
 
 [moat](https://github.com/AaltoRSE/moat) is a tool that containerizes
 and constricts AI agents.  venv-apptainer does not replace that, but
-it can install and set up its Apptainer images.  Use moat directly if
-you need full configuration, use venv-apptainer only for the simple
-base case.  I have designed this only for VScodium/VScode use, for one
-project at a time.
+it can install and set up its Apptainer images.  Use moat for full
+configuration, use venv-apptainer only for the simple base case.  I
+have designed this only for VScodium/VScode use, for one project at a
+time.
 
-Warning: it mounts a fake home dir at `~/.moat/home/` - same for all
-projects, so does not strictly isolate between projects.  Only one
-codium/code instance can run at once.
+This is still very alpha.  Warning: it mounts a fake home dir at
+`~/.moat/home/` - same for all projects, so does not strictly isolate
+between projects.  Only run one codium/code instance can run at once.
 
 **Initial setup**: `vea --moat` from the project directory.  There are
 no other configuration options (compared to moat that lets you set up
@@ -171,11 +203,12 @@ projects).
 
 Re-activate an environment with `vea` (from the project directory).
 
-Run with `codium --wait .` or similar (it is transparently added to
-your $PATH).  Look at `./venva/bin/` to see what is available.
+Look at `./venva/bin/` to see what is available - wrapper scripts get
+added there.  Run with `opencode`, `codium --wait .` or similar.
 
 
-## What can be modified on your system
+
+## List of what `venv-apptainer` may modify on your system
 
 * `~/sys/` (if it exists) or `$(dirname venv-apptainer2.sh)`:
   automatically downloaded apptainer images (unless you override/put
