@@ -199,9 +199,11 @@ function vea() {
         local MOAT_HOME="$HOME/.moat/home/"
         mkdir -p "$MOAT_HOME"/"$(realpath "$PWD" --relative-to "$HOME")"
         BINDS+=("--bind=$MOAT_HOME:$HOME/")
-        BINDS+=("--bind=$XDG_RUNTIME_DIR")
-        BINDS+=("--bind=/dev/null:$XDG_RUNTIME_DIR/bus")
-        BINDS+=("--bind=/run/dbus")
+        BINDS+=("--writable-tmpfs")
+        BINDS+=("--bind=$XDG_RUNTIME_DIR/bus")
+        #BINDS+=("--bind=$XDG_RUNTIME_DIR/doc")
+        #BINDS+=("--bind=/dev/null:$XDG_RUNTIME_DIR/bus")
+        #BINDS+=("--bind=/run/dbus")
         BIN_DIRS+=("/usr/local/bin/")
         BIN_DIRS+=("/usr/share/code/bin/")
         BIN_DIRS+=("/usr/share/codium/bin/")
