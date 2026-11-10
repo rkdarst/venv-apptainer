@@ -196,7 +196,7 @@ function vea() {
         install_command=true
         #run_command='bash -c "true ; \${@:-bash}" [in-container] "$@"'
         #run_command='bash -c "export PATH=\$PATH:/opt/nvm/versions/node/v24.22.0/bin/ ; \${@:-bash}" [in-container] "$@"'
-        run_command='bash -c "export PATH=\$PATH:/opt/nvm/versions/node/v24.22.0/bin/ ; mkdir -p $XDG_RUNTIME_DIR ; chmod 700 $XDG_RUNTIME_DIR ; \${@:-bash}" [in-container] "$@"'
+        run_command='bash -c "source /opt/nvm/nvm.sh ; mkdir -p $XDG_RUNTIME_DIR ; chmod 700 $XDG_RUNTIME_DIR ; \${@:-bash}" [in-container] "$@"'
         local MOAT_HOME="$HOME/.moat/home/"
         mkdir -p "$MOAT_HOME"/"$(realpath "$PWD" --relative-to "$HOME")"
         BINDS+=("--bind=$MOAT_HOME:$HOME/")
