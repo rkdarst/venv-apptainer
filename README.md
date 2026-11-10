@@ -181,7 +181,10 @@ Example `vea --uv sync` which runs `uv sync`.  To install from
 `requirements.txt`, use `vea --uv pip install -r requirements.txt`.
 
 
-### moat (preinstalled AI agents)
+### ~~moat (preinstalled AI agents)~~
+
+Deprecated: I will use ditch <https://github.com/rkdarst/ditch> from
+now on, which separates out the stateless moat parts from here.
 
 This is still alpha but in use.
 
