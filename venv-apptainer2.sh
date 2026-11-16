@@ -276,7 +276,7 @@ function vea() {
     # either a shell or the command given on the command line.
     # hard-coding bash not ideal but needs better than sh.
     # $FUNCNAME doesn't work in zsh, but OK.
-    cat >> "$BASE"/exec <<EOF
+    cat > "$BASE"/exec <<EOF
 #!/bin/bash
 # Original arguments:
 #    $FUNCNAME ${ORIG_ARGS[@]}
