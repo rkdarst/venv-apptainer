@@ -231,8 +231,7 @@ added there.  Run with `opencode`, `codium --wait .` or similar.
 
 ## HOW-TOs
 
-**You want to install a project from a different directory with `pip
-install -e` for development purposes.**
+### You want to install a project from a different directory with `pip install -e` for development purposes.
 
 The `-e DIR` option (if parsed by uv) will add `-e DIR` to the
 installation arguments and also add a read-only bind-mount `DIR` to
@@ -244,8 +243,7 @@ $ vea -e ../path-to-other-project/ -r requirements.txt
 ```
 
 
-**You want to install a project from a different directory with `pip
-install -e` for development purposes.**
+### You want to install a project from a different directory with `pip install -e` for development purposes.
 
 ```console
 ## First make an venv-a in the current dir
@@ -266,6 +264,38 @@ You can also do the above all in one command:
 ## Combines the above with a full command line.  This may give
 ## conflicts if the local package is also in requirements.txt
 $ vea --bind-ro $HOME/git/sphinx-misc-rkdarst/ --pip -r requirements.txt -e ~/git/sphinx-misc-rkdarst/
+```
+
+### Jupyter kernel installation (draft)
+
+*This could be improved later, when there is need.*
+
+`python -m ipykernel install --user` won't work because
+`~/.local/share/jupyter/kernels/` isn't available in the container
+*and* the Python path in the container isn't the same as outside the
+container *and* `~/.local/share/jupyter/runtime/` for connection files
+isn't available (needed when starting kernels).
+
+Current hack: the runtime directory with connection files needs to be
+mounted in.  Add `/home/darstr1/.local/share/jupyter/runtime/` to the
+binds when making the environment (or manually modify `./venva/exec`
+to add it).
+
+Then, create a file `~/.local/share/jupyter/NAME/kernel.json`
+file with these contents:
+
+```json
+{
+ "argv": [
+  "/path/to/project/venva/bin/python3",
+  "-m",
+  "ipykernel_launcher",
+  "-f",
+  "{connection_file}"
+ ],
+ "display_name": "DISPLAY_NAME",
+ "language": "python",
+}
 ```
 
 
