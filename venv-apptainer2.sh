@@ -304,13 +304,15 @@ EOF
     # transparently run the respective programs within the container.
     for BIN_DIR in "${BIN_DIRS[@]}" ; do
         for executable in $(./"$BASE"/exec ls "$BIN_DIR") ; do
-            echo 'BASE="$(dirname "$0")/../"' > "$BASE"/bin/"$executable"
+            echo '#!/bin/bash'                       >  "$BASE"/bin/"$executable"
+            echo 'BASE="$(dirname "$0")/../"'        >> "$BASE"/bin/"$executable"
             echo '"$BASE"/exec' "$executable" '"$@"' >> "$BASE"/bin/"$executable"
             chmod a+x "$BASE"/bin/"$executable"
         done
     done
     # Shell wrapper (venva-shell)
-    echo 'BASE="$(dirname "$0")/../"' > "$BASE"/bin/venva-shell
+    echo '#!/bin/bash'                   >  "$BASE"/bin/venva-shell
+    echo 'BASE="$(dirname "$0")/../"'    >> "$BASE"/bin/venva-shell
     echo '"$BASE"/exec' /bin/bash '"$@"' >> "$BASE"/bin/venva-shell
     chmod a+x "$BASE"/bin/venva-shell
     # exec wrapper (in bin, so findable by the user: venva-exec)
