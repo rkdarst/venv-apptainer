@@ -78,8 +78,9 @@ yourself.
   that directory inside the standard Python image (to save disk space).
 * `$PWD` is mounted inside the container, but `$HOME` isn't.
   Apptainer is run with `--contain`.
-* There is squashfs support to package up the environment and save
-  inodes (default on).
+* There is squashfs support, and by default it will squashfs the venv
+  (making it read-only) which saves inodes and performance.  Use
+  `--no-squash` to leave the environment writable at `./venva/venv/`.
 * It's designed (via `#!` lines) to make it difficult to accidentally
   execute outside the container
 * Handle pip/conda caches to avoid re-downloading things (it may
@@ -173,9 +174,30 @@ Like with pip mode, you can give arguments to fully control it.
 
 Preliminary support (I don't use uv).
 
-The initial install with `vea` must be run with
-`--uv [ARGUMENTS]`, which first runs `uv venv
-.venv` and then `uv ARGUMENTS`.
+The initial install with `vea` must be run with `--uv`, and if you
+want to use `uv add` to add dependencies, also use `--no-squash` in
+your initial creation.
+
+These are reasonable ways to make an initial environment (when
+`./venva` does not yet exist):
+```console
+## Sync from existing files (pyproject.toml)
+$ vea [--no-squash] --uv sync
+## Start new project, minimal pyproject.toml file.
+$ vea [--no-squash] --uv init --bare
+## Start from other dependencies:
+$ vea [--no-squash] --uv pip install -r requirements.txt
+```
+
+Re-activate an environment with `vea` in the directory.
+
+*If* you have used `--no-squash`, then you can update the environment
+automatically using `uv`'s standard mechanisms (this is running `uv`
+inside the container, inside the activated environment):
+```console
+$ uv add ARGUMENT
+$ uv ANY_ARUMENTS
+```
 
 Example `vea --uv sync` which runs `uv sync`.  To install from
 `requirements.txt`, use `vea --uv pip install -r requirements.txt`.
