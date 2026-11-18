@@ -42,7 +42,7 @@ is a completely standard `python` image).
 `vea` builds or activates the environment.  Basically, change to the
 dir and run `vea`, and you'll get set up with a old or new setup.
 
-There is support for `conda`, `uv`, `moat`, and various other
+There is support for `conda`, `uv`, and various other
 arguments which provide more control than the streamlined method above
 (some of these are less well tested).  `zsh` should also be supported
 but it needs testing.
@@ -181,6 +181,7 @@ Example `vea --uv sync` which runs `uv sync`.  To install from
 `requirements.txt`, use `vea --uv pip install -r requirements.txt`.
 
 
+<!--
 ### ~~moat (preinstalled AI agents)~~
 
 Deprecated: I will use ditch <https://github.com/rkdarst/ditch> from
@@ -208,7 +209,7 @@ Re-activate an environment with `vea` (from the project directory).
 
 Look at `./venva/bin/` to see what is available - wrapper scripts get
 added there.  Run with `opencode`, `codium --wait .` or similar.
-
+-->
 
 
 ## List of what `venv-apptainer` may modify on your system
