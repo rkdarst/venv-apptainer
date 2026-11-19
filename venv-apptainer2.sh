@@ -245,12 +245,12 @@ function vea() {
 
     # Do the actual building
     apptainer exec \
-              --cwd "$PWD" \
+              --contain --pid \
+	      --env LANG=C --env LC_ALL=C \
+              --cwd "$PWD" --workdir="$BASE"/tmp \
               --bind "$PWD:$PWD" \
               --bind="$BASE"/venv:"$PATH_IN" \
               "${BINDS[@]}" \
-              --workdir="$BASE"/tmp \
-              --contain --env LANG=C --env LC_ALL=C \
               "$IMG" \
               bash -c "$install_command" [install-container] "${INSTALL_OPTS[@]}"
     if [ $? -ne 0 ] ; then
@@ -289,11 +289,12 @@ IMG="$IMG"
 $(printf '%s\n'  "${EXTRA_SETUP[@]}")
 
 apptainer exec \\
-     --contain --env LANG=C --env LC_ALL=C \\
+     --contain --pid \\
+     --env LANG=C --env LC_ALL=C \\
+     --cwd "\$PWD" --workdir="\$BASE"/tmp \\
      --bind "\$PWD:\$PWD" \\
      "$BIND_ENV" \\
      \${BINDS[@]} \\
-     --cwd "\$PWD" --workdir="\$BASE"/tmp \\
      "\$IMG" \\
      $run_command
 EOF

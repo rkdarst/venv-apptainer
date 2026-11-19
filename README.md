@@ -327,6 +327,8 @@ file with these contents:
 
 - Practical testing by others, to see if it's ready for broad adoption.
 - ~~There may be some nested unquoted variable expansions.~~ (perhaps done)
+- Use `--containall` instead of `--contain`, using lessons from
+  `ditch`.
 - It will fail on directories with a `:` (colon) anywhere in the
   absolute path.
 - Investigate locale handling.
